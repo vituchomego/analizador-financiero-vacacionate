@@ -3,22 +3,22 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Vacacionate SAC — Analizador Financiero v3.0 (Moneda + Bancos)</title>
+<title>Vacacionate SAC — Analizador Financiero v4.1 Executive (Filtro Mensual + Comparativo)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
   :root {
-    --bg:#0D1117;--surface:#161B22;--surface2:#1C2330;--border:#30363D;
-    --accent:#2EA043;--accent2:#1F6FEB;--warn:#E3B341;--danger:#F85149;
-    --purple:#8957E5;--text:#E6EDF3;--muted:#7D8590;--card:#21262D;
-    --completo:#2EA043;--parcial:#E3B341;--pendiente:#F85149;--excedente:#8957E5;
-    --critica:#F85149;--alta:#FF9500;--media:#E3B341;--baja:#2EA043;
+    --bg:#F2F5F9;--surface:#FFFFFF;--surface2:#EDF1F6;--border:#D9E0E9;
+    --accent:#2E7D5B;--accent2:#1F4E79;--warn:#B7791F;--danger:#C0392B;
+    --purple:#6B5B95;--text:#1E2A3A;--muted:#5A6B7E;--card:#FFFFFF;
+    --completo:#2E7D5B;--parcial:#B7791F;--pendiente:#C0392B;--excedente:#6B5B95;
+    --critica:#C0392B;--alta:#D97706;--media:#B7791F;--baja:#2E7D5B;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;}
   .app-header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:12px;}
-  .logo{width:36px;height:36px;background:linear-gradient(135deg,#2EA043,#1F6FEB);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Space Mono';font-size:15px;font-weight:700;color:#fff;}
+  .logo{width:36px;height:36px;background:linear-gradient(135deg,#2E7D5B,#1F4E79);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Space Mono';font-size:15px;font-weight:700;color:#fff;}
   .app-title{font-size:16px;font-weight:700;letter-spacing:-.3px;}
   .app-subtitle{font-size:11px;color:var(--muted);}
   .app-sub{font-size:12px;color:var(--muted);margin-left:auto;font-family:'Space Mono';}
@@ -43,10 +43,10 @@
   .file-rm{color:var(--danger);cursor:pointer;font-size:14px;line-height:1;}
   .file-rm:hover{opacity:.7;}
   .analyze-wrap{margin-top:20px;text-align:center;}
-  .analyze-btn{background:linear-gradient(135deg,#1F6FEB,#2EA043);border:none;border-radius:10px;padding:14px 40px;font-size:15px;font-weight:700;color:#fff;cursor:pointer;font-family:'DM Sans';letter-spacing:-.2px;transition:opacity .2s,transform .1s;}
+  .analyze-btn{background:linear-gradient(135deg,#1F4E79,#2E7D5B);border:none;border-radius:10px;padding:14px 40px;font-size:15px;font-weight:700;color:#fff;cursor:pointer;font-family:'DM Sans';letter-spacing:-.2px;transition:opacity .2s,transform .1s;}
   .analyze-btn:hover{opacity:.9;transform:translateY(-1px);}
   .analyze-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
-  .error-msg{color:var(--danger);font-size:13px;margin-top:10px;text-align:center;background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.3);border-radius:8px;padding:8px 16px;}
+  .error-msg{color:var(--danger);font-size:13px;margin-top:10px;text-align:center;background:rgba(192,57,43,.1);border:1px solid rgba(192,57,43,.3);border-radius:8px;padding:8px 16px;}
   .loading-indicator{margin-top:12px;color:var(--muted);font-size:13px;text-align:center;}
   .spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent2);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px;}
   @keyframes spin{to{transform:rotate(360deg);}}
@@ -63,10 +63,10 @@
   .kpi-card.orange{border-left:3px solid var(--alta);}
   .status-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}
   .stat-card{border-radius:10px;padding:14px 16px;}
-  .stat-card.completo{background:rgba(46,160,67,.12);border:1px solid rgba(46,160,67,.3);}
-  .stat-card.parcial{background:rgba(227,179,65,.12);border:1px solid rgba(227,179,65,.3);}
-  .stat-card.pendiente{background:rgba(248,81,73,.12);border:1px solid rgba(248,81,73,.3);}
-  .stat-card.excedente{background:rgba(137,87,229,.12);border:1px solid rgba(137,87,229,.3);}
+  .stat-card.completo{background:rgba(46,125,91,.12);border:1px solid rgba(46,125,91,.3);}
+  .stat-card.parcial{background:rgba(183,121,31,.12);border:1px solid rgba(183,121,31,.3);}
+  .stat-card.pendiente{background:rgba(192,57,43,.12);border:1px solid rgba(192,57,43,.3);}
+  .stat-card.excedente{background:rgba(107,91,149,.12);border:1px solid rgba(107,91,149,.3);}
   .stat-n{font-size:28px;font-weight:700;font-family:'Space Mono';}
   .stat-label{font-size:12px;color:var(--muted);}
   .charts-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
@@ -92,16 +92,16 @@
   .mono{font-family:'Space Mono';font-size:11px;}
   .num{text-align:right;font-family:'Space Mono';font-size:11px;}
   .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.3px;}
-  .badge.completo{background:rgba(46,160,67,.2);color:#56d364;}
-  .badge.parcial{background:rgba(227,179,65,.2);color:#e3b341;}
-  .badge.pendiente{background:rgba(248,81,73,.2);color:#f85149;}
-  .badge.excedente{background:rgba(137,87,229,.2);color:#a371f7;}
-  .badge.revisar{background:rgba(255,150,50,.2);color:#ffa657;}
-  .badge.critica{background:rgba(248,81,73,.25);color:#ff6b62;border:1px solid rgba(248,81,73,.4);}
-  .badge.alta{background:rgba(255,149,0,.2);color:#ffa657;}
-  .badge.media{background:rgba(227,179,65,.2);color:#e3b341;}
-  .badge.baja{background:rgba(46,160,67,.2);color:#56d364;}
-  .badge.perdida{background:rgba(248,81,73,.3);color:#fff;border:1px solid var(--danger);animation:pulse 2s infinite;}
+  .badge.completo{background:rgba(46,125,91,.2);color:#1F6B4A;}
+  .badge.parcial{background:rgba(183,121,31,.2);color:#946215;}
+  .badge.pendiente{background:rgba(192,57,43,.2);color:#C0392B;}
+  .badge.excedente{background:rgba(107,91,149,.2);color:#5D4E8C;}
+  .badge.revisar{background:rgba(217,119,6,.2);color:#B45309;}
+  .badge.critica{background:rgba(192,57,43,.25);color:#A93226;border:1px solid rgba(192,57,43,.4);}
+  .badge.alta{background:rgba(217,119,6,.2);color:#B45309;}
+  .badge.media{background:rgba(183,121,31,.2);color:#946215;}
+  .badge.baja{background:rgba(46,125,91,.2);color:#1F6B4A;}
+  .badge.perdida{background:#C0392B;color:#fff;border:1px solid #A93226;}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.6;}}
   .neg{color:var(--danger)!important;}
   .pos{color:var(--completo)!important;}
@@ -112,11 +112,11 @@
   tfoot td{background:var(--surface2);font-weight:700;border-top:2px solid var(--border);padding:9px 12px;font-family:'Space Mono';font-size:11px;}
   .aging-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px;}
   .aging-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;}
-  .aging-card.b0{border-top:3px solid #56d364;}
-  .aging-card.b1{border-top:3px solid #e3b341;}
-  .aging-card.b2{border-top:3px solid #ffa657;}
-  .aging-card.b3{border-top:3px solid #f85149;}
-  .aging-card.b4{border-top:3px solid #c9302c;}
+  .aging-card.b0{border-top:3px solid #1F6B4A;}
+  .aging-card.b1{border-top:3px solid #946215;}
+  .aging-card.b2{border-top:3px solid #B45309;}
+  .aging-card.b3{border-top:3px solid #C0392B;}
+  .aging-card.b4{border-top:3px solid #7F1D1D;}
   .aging-card .aging-label{font-size:11px;color:var(--muted);font-weight:600;}
   .aging-card .aging-count{font-size:24px;font-weight:700;font-family:'Space Mono';margin:6px 0 2px;}
   .aging-card .aging-amount{font-size:11px;color:var(--muted);font-family:'Space Mono';}
@@ -150,17 +150,32 @@
   .tl-row .tl-amt.eg{color:var(--danger);}
   .pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:var(--surface2);color:var(--muted);}
   .crit-bar{display:flex;align-items:center;gap:8px;}
-  .crit-bar .cb-fill{height:6px;border-radius:3px;background:linear-gradient(90deg,#2EA043,#E3B341,#FF9500,#F85149);}
-  .help-tip{background:rgba(31,111,235,.08);border:1px solid rgba(31,111,235,.25);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--text);}
+  .crit-bar .cb-fill{height:6px;border-radius:3px;background:linear-gradient(90deg,#2E7D5B,#B7791F,#D97706,#C0392B);}
+  .help-tip{background:rgba(31,78,121,.08);border:1px solid rgba(31,78,121,.25);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--text);}
   .help-tip strong{color:var(--accent2);}
-  .badge.usd{background:rgba(31,111,235,.2);color:#58a6ff;}
-  .badge.pen{background:rgba(227,179,65,.2);color:#e3b341;}
-  .badge.banco{background:rgba(137,87,229,.15);color:#a371f7;border:1px solid rgba(137,87,229,.25);}
+  .badge.usd{background:rgba(31,78,121,.2);color:#1F4E79;}
+  .badge.pen{background:rgba(183,121,31,.2);color:#946215;}
+  .badge.banco{background:rgba(107,91,149,.15);color:#5D4E8C;border:1px solid rgba(107,91,149,.25);}
   .banco-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
   .banco-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;}
   .banco-name{font-size:13px;font-weight:700;margin-bottom:6px;}
   .banco-stats{display:flex;gap:10px;font-size:11px;color:var(--muted);font-family:'Space Mono';}
   .moneda-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+  /* filtro mensual */
+  .month-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:18px;}
+  .month-bar.active{border-color:var(--accent2);background:rgba(31,78,121,.08);}
+  .badge.mes{background:rgba(31,78,121,.15);color:#1F4E79;border:1px solid rgba(31,78,121,.3);}
+  .mes-clear{background:transparent;border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:12px;color:var(--danger);cursor:pointer;font-family:'DM Sans';}
+  .mes-clear:hover{border-color:var(--danger);}
+  /* ── Tema ejecutivo: acabados ── */
+  .kpi-card,.chart-card,.stat-card,.upload-zone,.banco-card,.aging-card,.traz-list,.traz-detail,.month-bar,.tbl-wrap{box-shadow:0 1px 3px rgba(30,42,58,.07);}
+  .app-header{box-shadow:0 1px 2px rgba(30,42,58,.06);}
+  thead th{background:#1F4E79;color:#FFFFFF;border-bottom:2px solid #16395A;}
+  thead th:hover{color:#D9E6F2;}
+  tfoot td{background:#EDF1F6;color:#1E2A3A;}
+  tbody tr:nth-child(even){background:#F8FAFC;}
+  tbody tr:hover{background:#E8EFF7;}
+  .tab.active{font-weight:700;}
   @media(max-width:1100px){.traz-layout{grid-template-columns:1fr;}}
   @media(max-width:900px){.upload-grid{grid-template-columns:1fr;}.kpi-grid{grid-template-columns:repeat(2,1fr);}.charts-row{grid-template-columns:1fr;}.status-grid{grid-template-columns:repeat(2,1fr);}.aging-grid{grid-template-columns:repeat(2,1fr);}.banco-grid{grid-template-columns:repeat(2,1fr);}}
 </style>
@@ -170,13 +185,14 @@
   <div class="logo">V</div>
   <div>
     <div class="app-title">Vacacionate SAC — Analizador Financiero</div>
-    <div class="app-subtitle">v3.0 Controller Edition · Moneda USD/PEN · Bancos · Trazabilidad · Aging</div>
+    <div class="app-subtitle">v4.1 Executive Edition · Filtro por Mes · Comparativo Mensual · Moneda · Bancos · Aging</div>
   </div>
   <div class="app-sub">Dashboard Dinámico Exportable</div>
 </div>
 <div class="tabs" id="tabs">
   <div class="tab active" data-tab="upload">📁 Cargar Archivos</div>
   <div class="tab disabled" data-tab="dashboard">📊 Dashboard</div>
+  <div class="tab disabled" data-tab="mensual">📅 Comparativo Mensual</div>
   <div class="tab disabled" data-tab="cruce">📋 Cruce Completo</div>
   <div class="tab disabled" data-tab="trazabilidad">🔍 Trazabilidad</div>
   <div class="tab disabled" data-tab="criticos">🚨 Críticos / Aging</div>
@@ -200,7 +216,9 @@ let state = {
   search: '',
   selectedFile: null,
   sortKey: null,
-  sortDir: 'desc'
+  sortDir: 'desc',
+  mesFiltro: 'ALL',      // 'ALL' o 'YYYY-MM'
+  mesCriterio: 'gen'     // 'gen' = mes de generación · 'cobro' = mes en que nos pagaron · 'pago' = mes en que pagamos
 };
 let charts = {};
 
@@ -293,6 +311,12 @@ const fmtDate = (d) => {
   const yy = d.getFullYear();
   return `${dd}/${mm}/${yy}`;
 };
+
+// ── Meses ──────────────────────────────────────────────────────
+const MES_ABBR = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const monthKey = (d) => (d instanceof Date && !isNaN(d.getTime())) ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` : null;
+const monthLabel = (k) => { if(!k) return '—'; const p = String(k).split('-'); if(p.length<2) return k; return `${MES_ABBR[parseInt(p[1])-1] || p[1]} ${p[0]}`; };
+const mesCell = (k) => k ? `<span class="badge mes">${monthLabel(k)}</span>` : '<span style="color:var(--muted)">—</span>';
 
 const readSheetData = (file) => new Promise((res, rej) => {
   const reader = new FileReader();
@@ -509,6 +533,15 @@ const crossRef = (maestroArr, ingRows, egRows) => {
     const firstActivity = allDates.length ? new Date(Math.min(...allDates.map(d => d.getTime()))) : null;
     const lastActivity = allDates.length ? new Date(Math.max(...allDates.map(d => d.getTime()))) : null;
     const lastIng = ingDates.length ? new Date(Math.max(...ingDates.map(d => d.getTime()))) : null;
+    const firstIng = ingDates.length ? new Date(Math.min(...ingDates.map(d => d.getTime()))) : null;
+    const firstEg = egDates.length ? new Date(Math.min(...egDates.map(d => d.getTime()))) : null;
+    const lastEg = egDates.length ? new Date(Math.max(...egDates.map(d => d.getTime()))) : null;
+    // ── Meses clave del file ──
+    // MesGeneracion: mes en que se generó el file (fecha del Maestro; si no hay, primera actividad)
+    const mesGeneracion = monthKey(m.FechaMaestro) || monthKey(firstActivity);
+    // MesesCobro: meses en que NOS PAGARON (ingresos) · MesesPago: meses en que PAGAMOS (egresos)
+    const mesesCobro = [...new Set(ingDates.map(monthKey).filter(Boolean))].sort();
+    const mesesPago  = [...new Set(egDates.map(monthKey).filter(Boolean))].sort();
     const daysSinceFirst = firstActivity ? daysBetween(firstActivity, today) : null;
     const daysSinceLastIng = lastIng ? daysBetween(lastIng, today) : null;
 
@@ -578,6 +611,11 @@ const crossRef = (maestroArr, ingRows, egRows) => {
       Est_Ing: eI, Est_Eg: eE, Estado: eG,
       Ganancia: profit, Margen: margin, MargenMaestro: marginVsMaestro,
       PrimeraActividad: firstActivity, UltimaActividad: lastActivity, UltimoIngreso: lastIng,
+      PrimerIngreso: firstIng, PrimerEgreso: firstEg, UltimoEgreso: lastEg,
+      MesGeneracion: mesGeneracion,
+      MesCobro: monthKey(firstIng), MesUltimoCobro: monthKey(lastIng),
+      MesPago: monthKey(firstEg), MesUltimoPago: monthKey(lastEg),
+      MesesCobro: mesesCobro, MesesPago: mesesPago,
       DiasDesdeInicio: daysSinceFirst, DiasSinIngreso: daysSinceLastIng,
       AgingBucket: agingBucket, Criticidad: criticidad, ScoreCrit: scoreCrit,
       AlertaRentabilidad: alertaRent,
@@ -592,20 +630,123 @@ const crossRef = (maestroArr, ingRows, egRows) => {
 };
 
 /* ============================================================
+   AGREGADOS (recalculables según filtro de mes)
+   ============================================================ */
+function computeAggregates(cruce) {
+  const T = (k) => cruce.reduce((s, r) => s + (r[k] || 0), 0);
+  const conIng = cruce.filter(r => r.Ing_Total > 0);
+  const margenPromedio = conIng.length ? conIng.reduce((s, r) => s + r.Margen, 0) / conIng.length : 0;
+  const allIngTx = cruce.flatMap(r => r.Ingresos);
+  const allEgTx  = cruce.flatMap(r => r.Egresos);
+  const byMoneda = {
+    USD: { ing: allIngTx.filter(r => r.Moneda === 'USD').reduce((s, r) => s + r.Monto, 0), eg: allEgTx.filter(r => r.Moneda === 'USD').reduce((s, r) => s + r.Monto, 0), ingTx: allIngTx.filter(r => r.Moneda === 'USD').length, egTx: allEgTx.filter(r => r.Moneda === 'USD').length },
+    PEN: { ing: allIngTx.filter(r => r.Moneda === 'PEN').reduce((s, r) => s + r.Monto, 0), eg: allEgTx.filter(r => r.Moneda === 'PEN').reduce((s, r) => s + r.Monto, 0), ingTx: allIngTx.filter(r => r.Moneda === 'PEN').length, egTx: allEgTx.filter(r => r.Moneda === 'PEN').length },
+    DESCONOCIDA: { ing: allIngTx.filter(r => !r.Moneda).reduce((s, r) => s + r.Monto, 0), eg: allEgTx.filter(r => !r.Moneda).reduce((s, r) => s + r.Monto, 0), ingTx: allIngTx.filter(r => !r.Moneda).length, egTx: allEgTx.filter(r => !r.Moneda).length }
+  };
+  const byBanco = {};
+  for (const tx of allIngTx) { const b = tx.Banco || 'SIN BANCO'; if (!byBanco[b]) byBanco[b] = { ingTx: 0, egTx: 0, ingMonto: 0, egMonto: 0 }; byBanco[b].ingTx++; byBanco[b].ingMonto += tx.Monto; }
+  for (const tx of allEgTx)  { const b = tx.Banco || 'SIN BANCO'; if (!byBanco[b]) byBanco[b] = { ingTx: 0, egTx: 0, ingMonto: 0, egMonto: 0 }; byBanco[b].egTx++; byBanco[b].egMonto += tx.Monto; }
+  return {
+    totals: { files: cruce.length, maestro: T('Total'), ingresos: T('Ing_Total'), egresos: T('Eg_Total'), pendiente: T('Pendiente'), saldoCobrar: T('SaldoCobrar') },
+    profitTotals: {
+      ganancia: T('Ganancia'),
+      margenPromedio,
+      filesPerdida: cruce.filter(r => r.AlertaRentabilidad === 'PÉRDIDA').length,
+      filesCriticos: cruce.filter(r => r.Criticidad === 'CRÍTICA').length,
+      filesAntiguos: cruce.filter(r => ['91-180', '180+'].includes(r.AgingBucket)).length
+    },
+    byEstado: cruce.reduce((acc, r) => { acc[r.Estado] = (acc[r.Estado] || 0) + 1; return acc; }, {}),
+    byEstIng: cruce.reduce((acc, r) => { acc[r.Est_Ing] = (acc[r.Est_Ing] || 0) + 1; return acc; }, {}),
+    byMoneda, byBanco
+  };
+}
+
+/* ============================================================
+   FILTRO POR MES (global)
+   ============================================================ */
+function viewCruce() {
+  if (!state.result) return [];
+  const c = state.result.cruce;
+  if (state.mesFiltro === 'ALL') return c;
+  const m = state.mesFiltro;
+  if (state.mesCriterio === 'gen')   return c.filter(r => r.MesGeneracion === m);
+  if (state.mesCriterio === 'cobro') return c.filter(r => r.MesesCobro.includes(m));
+  return c.filter(r => r.MesesPago.includes(m));
+}
+
+function availableMonths() {
+  const set = new Set();
+  for (const r of state.result.cruce) {
+    if (r.MesGeneracion) set.add(r.MesGeneracion);
+    r.MesesCobro.forEach(k => set.add(k));
+    r.MesesPago.forEach(k => set.add(k));
+  }
+  return [...set].sort();
+}
+
+function monthBar() {
+  const months = availableMonths();
+  if (!months.length) return '';
+  const critOpts = [
+    ['gen',   '📄 Mes de generación del file'],
+    ['cobro', '💰 Mes en que NOS PAGARON (ingreso)'],
+    ['pago',  '💸 Mes en que PAGAMOS (egreso)']
+  ].map(([v, l]) => `<option value="${v}" ${state.mesCriterio === v ? 'selected' : ''}>${l}</option>`).join('');
+  const mesOpts = ['ALL', ...months].map(m => `<option value="${m}" ${state.mesFiltro === m ? 'selected' : ''}>${m === 'ALL' ? 'Todos los meses' : monthLabel(m)}</option>`).join('');
+  const active = state.mesFiltro !== 'ALL';
+  const n = active ? viewCruce().length : state.result.cruce.length;
+  return `<div class="month-bar ${active ? 'active' : ''}">
+    <span style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.5px">📅 FILTRO POR MES:</span>
+    <select class="filter-select" onchange="updateMesCriterio(this.value)">${critOpts}</select>
+    <select class="filter-select" onchange="updateMesFiltro(this.value)">${mesOpts}</select>
+    ${active
+      ? `<span class="badge mes" style="font-size:11px">Mostrando ${monthLabel(state.mesFiltro)} · ${n} files</span><button class="mes-clear" onclick="updateMesFiltro('ALL')">✕ Quitar filtro</button>`
+      : `<span class="count-badge">Sin filtro · ${n} files · Las pestañas, KPIs y gráficos se recalculan al filtrar</span>`}
+  </div>`;
+}
+function updateMesFiltro(v) { state.mesFiltro = v; state.selectedFile = null; render(); }
+function updateMesCriterio(v) { state.mesCriterio = v; state.selectedFile = null; render(); }
+
+/* ============================================================
+   COMPARATIVO MENSUAL — datos por mes
+   ============================================================ */
+function buildMensual() {
+  const cruce = state.result.cruce;
+  const map = {};
+  const get = (k) => map[k] || (map[k] = { ingMonto: 0, ingTx: 0, egMonto: 0, egTx: 0, filesGen: 0, maestroGen: 0, pendienteGen: 0, filesPerdida: 0, filesPendientes: 0, filesCompletos: 0, filesSinIngreso: 0 });
+  for (const r of cruce) {
+    for (const i of r.Ingresos) { const k = monthKey(i.Fecha); if (!k) continue; const s = get(k); s.ingMonto += i.Monto; s.ingTx++; }
+    for (const e of r.Egresos)  { const k = monthKey(e.Fecha); if (!k) continue; const s = get(k); s.egMonto += e.Monto; s.egTx++; }
+    if (r.MesGeneracion) {
+      const s = get(r.MesGeneracion);
+      s.filesGen++; s.maestroGen += r.Total; s.pendienteGen += Math.max(0, r.Pendiente);
+      if (r.AlertaRentabilidad === 'PÉRDIDA' || r.AlertaRentabilidad === 'SOLO EGRESOS') s.filesPerdida++;
+      if (['PENDIENTE COBRO', 'COBRO PARCIAL'].includes(r.Estado)) s.filesPendientes++;
+      if (r.Estado === 'COBRO COMPLETO') s.filesCompletos++;
+      if (r.Est_Ing === 'SIN INGRESO') s.filesSinIngreso++;
+    }
+  }
+  return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
+}
+
+/* ============================================================
    RENDER — Tab routing
    ============================================================ */
 function render() {
   const el = document.getElementById('main-content');
-  if (state.tab === 'upload') el.innerHTML = renderUpload();
-  else if (state.tab === 'dashboard') { el.innerHTML = renderDashboard(); renderCharts(); }
-  else if (state.tab === 'cruce') el.innerHTML = renderCruce();
-  else if (state.tab === 'trazabilidad') el.innerHTML = renderTrazabilidad();
-  else if (state.tab === 'criticos') { el.innerHTML = renderCriticos(); renderAgingChart(); }
-  else if (state.tab === 'rentabilidad') { el.innerHTML = renderRentabilidad(); renderRentChart(); }
-  else if (state.tab === 'completos') el.innerHTML = renderCompletos();
-  else if (state.tab === 'pendientes') el.innerHTML = renderPendientes();
-  else if (state.tab === 'bancos') { el.innerHTML = renderBancos(); renderBancosCharts(); }
-  else if (state.tab === 'egresos') el.innerHTML = renderEgresos();
+  if (state.tab === 'upload') { el.innerHTML = renderUpload(); return; }
+  if (!state.result) { el.innerHTML = renderUpload(); return; }
+  const bar = state.tab === 'mensual' ? '' : monthBar();
+  if (state.tab === 'dashboard') { el.innerHTML = bar + renderDashboard(); renderCharts(); }
+  else if (state.tab === 'mensual') { el.innerHTML = renderMensual(); renderMensualCharts(); }
+  else if (state.tab === 'cruce') el.innerHTML = bar + renderCruce();
+  else if (state.tab === 'trazabilidad') el.innerHTML = bar + renderTrazabilidad();
+  else if (state.tab === 'criticos') { el.innerHTML = bar + renderCriticos(); renderAgingChart(); }
+  else if (state.tab === 'rentabilidad') { el.innerHTML = bar + renderRentabilidad(); renderRentChart(); }
+  else if (state.tab === 'completos') el.innerHTML = bar + renderCompletos();
+  else if (state.tab === 'pendientes') el.innerHTML = bar + renderPendientes();
+  else if (state.tab === 'bancos') { el.innerHTML = bar + renderBancos(); renderBancosCharts(); }
+  else if (state.tab === 'egresos') el.innerHTML = bar + renderEgresos();
 }
 
 function renderUpload() {
@@ -614,7 +755,7 @@ function renderUpload() {
   const masterItem = maestro ? `<div class="file-item"><span>📄</span><span class="file-name">${maestro.name}</span><span class="file-rm" onclick="removeFile('maestro',0)">✕</span></div>` : '';
   return `<h2 class="section-title">Cargar Archivos para Análisis</h2>
     <p class="section-sub">Sube el maestro, los archivos de ingresos y los archivos de egresos (acepta .xlsx y .xls)</p>
-    <div class="help-tip"><strong>📌 v2.0 Controller Edition:</strong> Esta versión captura cada transacción individual con fecha y recibo para trazabilidad completa. Si tus archivos incluyen columna "Fecha", podrás ver aging (antigüedad) y ranking de files críticos.</div>
+    <div class="help-tip"><strong>📌 v4.0 Controller Edition:</strong> Ahora cada file muestra el <strong>mes en que se generó</strong>, el <strong>mes en que nos pagaron</strong> (ingresos) y el <strong>mes en que pagamos</strong> (egresos). Incluye <strong>filtro global por mes 📅</strong> en todas las pestañas y la nueva pestaña <strong>Comparativo Mensual</strong> para ver mes a mes cuántos files terminan en Pérdida o sin ingreso reconocido. Requiere que los archivos incluyan columna "Fecha".</div>
     <div class="upload-grid">
       <div class="upload-zone ${maestro ? 'has-files' : ''}">
         <div class="uz-label">PASO 1</div>
@@ -649,7 +790,8 @@ function renderUpload() {
    DASHBOARD
    ============================================================ */
 function renderDashboard() {
-  const { totals, byEstado, byEstIng, profitTotals, byMoneda } = state.result;
+  const cruceV = viewCruce();
+  const { totals, byEstado, byEstIng, profitTotals, byMoneda } = computeAggregates(cruceV);
   const pct = (a, b) => b > 0 ? `${(a / b * 100).toFixed(1)}%` : '—';
   const eColors = { 'COBRO COMPLETO': 'completo', 'COBRO PARCIAL': 'parcial', 'PENDIENTE COBRO': 'pendiente', 'EXCEDENTE': 'excedente' };
   const statusCards = Object.entries(byEstado).map(([k, v]) => `<div class="stat-card ${eColors[k] || 'parcial'}"><div class="stat-n">${v.toLocaleString()}</div><div class="stat-label">${k}</div></div>`).join('');
@@ -699,15 +841,16 @@ function renderCharts() {
   if (!state.result) return;
   Object.values(charts).forEach(c => c.destroy());
   charts = {};
-  const { byEstado, byEstIng, cruce } = state.result;
-  const palette = { 'COBRO COMPLETO': '#2EA043', 'COBRO PARCIAL': '#E3B341', 'PENDIENTE COBRO': '#F85149', 'EXCEDENTE': '#8957E5', 'REVISAR': '#FF9500', 'SIN INGRESO': '#F85149', 'COMPLETO': '#2EA043', 'INGRESO MAYOR': '#8957E5' };
+  const cruce = viewCruce();
+  const { byEstado, byEstIng } = computeAggregates(cruce);
+  const palette = { 'COBRO COMPLETO': '#2E7D5B', 'COBRO PARCIAL': '#B7791F', 'PENDIENTE COBRO': '#C0392B', 'EXCEDENTE': '#6B5B95', 'REVISAR': '#D97706', 'SIN INGRESO': '#C0392B', 'COMPLETO': '#2E7D5B', 'INGRESO MAYOR': '#6B5B95' };
   const pe = document.getElementById('chart-pie');
   if (!pe) return;
   const pLabels = Object.keys(byEstado), pVals = Object.values(byEstado);
   charts.pie = new Chart(pe, {
     type: 'doughnut',
-    data: { labels: pLabels, datasets: [{ data: pVals, backgroundColor: pLabels.map(l => palette[l] || '#7D8590'), borderColor: '#21262D', borderWidth: 2 }] },
-    options: { plugins: { legend: { labels: { color: '#E6EDF3', font: { size: 11 } } } }, cutout: '62%' }
+    data: { labels: pLabels, datasets: [{ data: pVals, backgroundColor: pLabels.map(l => palette[l] || '#5A6B7E'), borderColor: '#FFFFFF', borderWidth: 2 }] },
+    options: { plugins: { legend: { labels: { color: '#1E2A3A', font: { size: 11 } } } }, cutout: '62%' }
   });
   const be = document.getElementById('chart-bar');
   if (!be) return;
@@ -716,8 +859,8 @@ function renderCharts() {
   const fullL = Object.keys(byEstIng);
   charts.bar = new Chart(be, {
     type: 'bar',
-    data: { labels: bLabels, datasets: [{ label: 'Files', data: bVals, backgroundColor: fullL.map(l => palette[l] || '#1F6FEB'), borderRadius: 4 }] },
-    options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#7D8590', font: { size: 10 } }, grid: { color: '#30363D' } }, y: { ticks: { color: '#7D8590' }, grid: { color: '#30363D' } } } }
+    data: { labels: bLabels, datasets: [{ label: 'Files', data: bVals, backgroundColor: fullL.map(l => palette[l] || '#1F4E79'), borderRadius: 4 }] },
+    options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#5A6B7E', font: { size: 10 } }, grid: { color: '#D9E0E9' } }, y: { ticks: { color: '#5A6B7E' }, grid: { color: '#D9E0E9' } } } }
   });
   const ce = document.getElementById('chart-comp');
   if (!ce) return;
@@ -727,12 +870,12 @@ function renderCharts() {
     data: {
       labels: top20.map(r => r.File_Num),
       datasets: [
-        { label: 'Maestro', data: top20.map(r => r.Total), backgroundColor: '#1F6FEB', borderRadius: 2 },
-        { label: 'Ingresos', data: top20.map(r => r.Ing_Total), backgroundColor: '#2EA043', borderRadius: 2 },
-        { label: 'Egresos', data: top20.map(r => r.Eg_Total), backgroundColor: '#F85149', borderRadius: 2 }
+        { label: 'Maestro', data: top20.map(r => r.Total), backgroundColor: '#1F4E79', borderRadius: 2 },
+        { label: 'Ingresos', data: top20.map(r => r.Ing_Total), backgroundColor: '#2E7D5B', borderRadius: 2 },
+        { label: 'Egresos', data: top20.map(r => r.Eg_Total), backgroundColor: '#C0392B', borderRadius: 2 }
       ]
     },
-    options: { plugins: { legend: { labels: { color: '#E6EDF3', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#7D8590', font: { size: 9 } }, grid: { color: '#30363D' } }, y: { ticks: { color: '#7D8590' }, grid: { color: '#30363D' } } } }
+    options: { plugins: { legend: { labels: { color: '#1E2A3A', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#5A6B7E', font: { size: 9 } }, grid: { color: '#D9E0E9' } }, y: { ticks: { color: '#5A6B7E' }, grid: { color: '#D9E0E9' } } } }
   });
 }
 
@@ -764,6 +907,7 @@ function buildTable(rows, cols, opts = {}) {
     if (c.type === 'pct') { const n = toNum(v); return `<td class="num" style="color:${n < 0 ? 'var(--danger)' : n > 20 ? 'var(--completo)' : 'var(--text)'}">${fmtPct(n)}</td>`; }
     if (c.type === 'pend') { const n = toNum(v); return `<td class="num ${n > 0 ? 'neg' : ''}">${n > 0 ? `<strong>${fmtN(n)}</strong>` : '<span style="color:var(--completo)">✓</span>'}</td>`; }
     if (c.type === 'date') return `<td class="mono">${fmtDate(v)}</td>`;
+    if (c.type === 'mes') return `<td>${mesCell(v)}</td>`;
     if (c.type === 'days') { const n = v; if (n === null || n === undefined) return '<td class="mono" style="color:var(--muted)">—</td>'; const cl = n > 90 ? 'var(--danger)' : n > 60 ? 'var(--alta)' : n > 30 ? 'var(--warn)' : 'var(--muted)'; return `<td class="mono" style="color:${cl}">${n}d</td>`; }
     return `<td class="${c.mono ? 'mono' : ''}" title="${v ?? ''}">${v ?? '—'}</td>`;
   }).join('')}</tr>`).join('');
@@ -771,7 +915,7 @@ function buildTable(rows, cols, opts = {}) {
 }
 
 function renderCruce() {
-  const cruce = state.result.cruce;
+  const cruce = viewCruce();
   let filtered = cruce.filter(r => {
     const ms = state.filter === 'ALL' || r.Estado === state.filter;
     const ss = !state.search || r.File_Num.includes(state.search) || String(r.Pasajero).toLowerCase().includes(state.search.toLowerCase()) || String(r.Agencia).toLowerCase().includes(state.search.toLowerCase());
@@ -784,6 +928,9 @@ function renderCruce() {
     { key: 'File_Num', label: 'FILE', mono: true },
     { key: 'Pasajero', label: 'PASAJERO' },
     { key: 'Agencia', label: 'AGENCIA' },
+    { key: 'MesGeneracion', label: 'MES GENERADO', type: 'mes' },
+    { key: 'MesCobro', label: 'MES NOS PAGARON', type: 'mes' },
+    { key: 'MesPago', label: 'MES PAGAMOS', type: 'mes' },
     { key: 'Total', label: 'MAESTRO', type: 'num' },
     { key: 'Ing_Total', label: 'INGRESOS', type: 'num' },
     { key: 'Eg_Total', label: 'EGRESOS', type: 'num' },
@@ -794,7 +941,7 @@ function renderCruce() {
     { key: 'Estado', label: 'ESTADO', type: 'badge' },
     { key: 'Moneda', label: 'MONEDA', type: 'moneda' }
   ];
-  return `<div class="help-tip">💡 <strong>Tip:</strong> Haz clic en cualquier file para abrir su <strong>Trazabilidad</strong> detallada con todos los abonos individuales.</div>
+  return `<div class="help-tip">💡 <strong>Tip:</strong> Haz clic en cualquier file para abrir su <strong>Trazabilidad</strong> detallada con todos los abonos individuales. Las columnas de MES muestran el primer cobro/pago del file (el detalle completo está en Trazabilidad).</div>
     <div class="table-controls">
       <input class="search-input" type="text" placeholder="🔍 Buscar por file, pasajero o agencia..." value="${state.search}" oninput="updateSearch(this.value)">
       <select class="filter-select" onchange="updateFilter(this.value)">${opts}</select>
@@ -803,7 +950,7 @@ function renderCruce() {
     </div>
     <div class="tbl-wrap tbl-scroll">
       ${buildTable(filtered, cols, { clickable: true })}
-      <tfoot><tr><td></td><td colspan="2"><strong>TOTALES</strong></td><td class="num">${fmtN(T('Total'))}</td><td class="num">${fmtN(T('Ing_Total'))}</td><td class="num">${fmtN(T('Eg_Total'))}</td><td class="num neg"><strong>${fmtN(T('Pendiente'))}</strong></td><td class="num"><strong style="color:${T('Ganancia') >= 0 ? 'var(--completo)' : 'var(--danger)'}">${fmtN(T('Ganancia'))}</strong></td><td></td><td></td><td></td></tr></tfoot>
+      <tfoot><tr><td></td><td colspan="2"><strong>TOTALES</strong></td><td colspan="3"></td><td class="num">${fmtN(T('Total'))}</td><td class="num">${fmtN(T('Ing_Total'))}</td><td class="num">${fmtN(T('Eg_Total'))}</td><td class="num neg"><strong>${fmtN(T('Pendiente'))}</strong></td><td class="num"><strong style="color:${T('Ganancia') >= 0 ? 'var(--completo)' : 'var(--danger)'}">${fmtN(T('Ganancia'))}</strong></td><td></td><td></td><td></td><td></td></tr></tfoot>
     </div>`;
 }
 
@@ -811,7 +958,7 @@ function renderCruce() {
    TRAZABILIDAD — Drill-down per file
    ============================================================ */
 function renderTrazabilidad() {
-  const cruce = state.result.cruce;
+  const cruce = viewCruce();
   const search = state.search.toLowerCase();
   const list = cruce.filter(r => !search || r.File_Num.includes(state.search) || String(r.Pasajero).toLowerCase().includes(search) || String(r.Agencia).toLowerCase().includes(search))
     .sort((a, b) => b.Pendiente - a.Pendiente);
@@ -876,6 +1023,11 @@ function renderTrazabilidad() {
         <div class="ts-card"><div class="ts-label">Última Actividad</div><div class="ts-value" style="font-size:13px">${fmtDate(r.UltimaActividad)}</div></div>
         <div class="ts-card"><div class="ts-label">Antigüedad · Sin Cobro</div><div class="ts-value" style="font-size:13px">${r.DiasDesdeInicio !== null ? r.DiasDesdeInicio + 'd' : '—'} · ${r.DiasSinIngreso !== null ? r.DiasSinIngreso + 'd' : '—'}</div></div>
       </div>
+      <div class="traz-summary" style="grid-template-columns:repeat(3,1fr)">
+        <div class="ts-card" style="border-left:3px solid var(--accent2)"><div class="ts-label">📄 Mes en que se generó</div><div class="ts-value" style="font-size:14px">${monthLabel(r.MesGeneracion)}</div></div>
+        <div class="ts-card" style="border-left:3px solid var(--completo)"><div class="ts-label">💰 Mes(es) en que nos pagaron</div><div class="ts-value" style="font-size:13px">${r.MesesCobro.length ? r.MesesCobro.map(monthLabel).join(' · ') : '—'}</div></div>
+        <div class="ts-card" style="border-left:3px solid var(--danger)"><div class="ts-label">💸 Mes(es) en que pagamos</div><div class="ts-value" style="font-size:13px">${r.MesesPago.length ? r.MesesPago.map(monthLabel).join(' · ') : '—'}</div></div>
+      </div>
       <div class="traz-timeline">
         <div class="tl-section">
           <div class="tl-title"><span style="width:8px;height:8px;border-radius:50%;background:var(--completo);display:inline-block"></span> INGRESOS / ABONOS (${r.NumIngresos}) — Total ${fmtN(r.Ing_Total)}</div>
@@ -911,7 +1063,7 @@ function renderTrazabilidad() {
    CRÍTICOS / AGING
    ============================================================ */
 function renderCriticos() {
-  const cruce = state.result.cruce;
+  const cruce = viewCruce();
   const pend = cruce.filter(r => r.Pendiente > 0);
   const byBucket = { '0-30': [], '31-60': [], '61-90': [], '91-180': [], '180+': [], 'SIN_FECHA': [] };
   for (const r of pend) (byBucket[r.AgingBucket] || byBucket['SIN_FECHA']).push(r);
@@ -960,18 +1112,18 @@ function renderCriticos() {
 
 function renderAgingChart() {
   if (!state.result) return;
-  const pend = state.result.cruce.filter(r => r.Pendiente > 0);
+  const pend = viewCruce().filter(r => r.Pendiente > 0);
   const buckets = ['0-30', '31-60', '61-90', '91-180', '180+', 'SIN_FECHA'];
   const counts = buckets.map(b => pend.filter(r => r.AgingBucket === b).length);
   const amts = buckets.map(b => pend.filter(r => r.AgingBucket === b).reduce((s, r) => s + r.Pendiente, 0));
-  const colors = ['#2EA043', '#E3B341', '#FF9500', '#F85149', '#c9302c', '#7D8590'];
+  const colors = ['#2E7D5B', '#B7791F', '#D97706', '#C0392B', '#7F1D1D', '#5A6B7E'];
   const ce = document.getElementById('chart-aging');
   if (ce) {
     if (charts.aging) charts.aging.destroy();
     charts.aging = new Chart(ce, {
       type: 'bar',
       data: { labels: buckets, datasets: [{ data: counts, backgroundColor: colors, borderRadius: 4 }] },
-      options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#7D8590' }, grid: { color: '#30363D' } }, y: { ticks: { color: '#7D8590' }, grid: { color: '#30363D' } } } }
+      options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#5A6B7E' }, grid: { color: '#D9E0E9' } }, y: { ticks: { color: '#5A6B7E' }, grid: { color: '#D9E0E9' } } } }
     });
   }
   const ca = document.getElementById('chart-aging-amt');
@@ -980,7 +1132,7 @@ function renderAgingChart() {
     charts.agingAmt = new Chart(ca, {
       type: 'bar',
       data: { labels: buckets, datasets: [{ data: amts, backgroundColor: colors, borderRadius: 4 }] },
-      options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#7D8590' }, grid: { color: '#30363D' } }, y: { ticks: { color: '#7D8590' }, grid: { color: '#30363D' } } } }
+      options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#5A6B7E' }, grid: { color: '#D9E0E9' } }, y: { ticks: { color: '#5A6B7E' }, grid: { color: '#D9E0E9' } } } }
     });
   }
 }
@@ -989,7 +1141,7 @@ function renderAgingChart() {
    RENTABILIDAD
    ============================================================ */
 function renderRentabilidad() {
-  const cruce = state.result.cruce;
+  const cruce = viewCruce();
   const conMovs = cruce.filter(r => r.Ing_Total > 0 || r.Eg_Total > 0);
   const perdidas = cruce.filter(r => r.AlertaRentabilidad === 'PÉRDIDA');
   const margenBajo = cruce.filter(r => r.AlertaRentabilidad === 'MARGEN BAJO');
@@ -1006,6 +1158,9 @@ function renderRentabilidad() {
     { key: 'File_Num', label: 'FILE', mono: true },
     { key: 'Pasajero', label: 'PASAJERO' },
     { key: 'Agencia', label: 'AGENCIA' },
+    { key: 'MesGeneracion', label: 'MES GENERADO', type: 'mes' },
+    { key: 'MesCobro', label: 'MES NOS PAGARON', type: 'mes' },
+    { key: 'MesPago', label: 'MES PAGAMOS', type: 'mes' },
     { key: 'Total', label: 'MAESTRO', type: 'num' },
     { key: 'Ing_Total', label: 'INGRESOS', type: 'num' },
     { key: 'Eg_Total', label: 'EGRESOS', type: 'num' },
@@ -1035,13 +1190,13 @@ function renderRentabilidad() {
     </div>
     <div class="tbl-wrap tbl-scroll">
       ${buildTable(sorted, cols, { clickable: true })}
-      <tfoot><tr><td></td><td colspan="2"><strong>TOTALES</strong></td><td class="num">${fmtN(T('Total'))}</td><td class="num">${fmtN(totalIng)}</td><td class="num">${fmtN(totalEg)}</td><td class="num"><strong style="color:${totalProfit >= 0 ? 'var(--completo)' : 'var(--danger)'}">${fmtN(totalProfit)}</strong></td><td class="num"><strong>${fmtPct(avgMargin)}</strong></td><td></td><td></td></tr></tfoot>
+      <tfoot><tr><td></td><td colspan="2"><strong>TOTALES</strong></td><td colspan="3"></td><td class="num">${fmtN(T('Total'))}</td><td class="num">${fmtN(totalIng)}</td><td class="num">${fmtN(totalEg)}</td><td class="num"><strong style="color:${totalProfit >= 0 ? 'var(--completo)' : 'var(--danger)'}">${fmtN(totalProfit)}</strong></td><td class="num"><strong>${fmtPct(avgMargin)}</strong></td><td></td><td></td></tr></tfoot>
     </div>`;
 }
 
 function renderRentChart() {
   if (!state.result) return;
-  const conMovs = state.result.cruce.filter(r => r.Ing_Total > 0);
+  const conMovs = viewCruce().filter(r => r.Ing_Total > 0);
   const top = conMovs.slice().sort((a, b) => b.Ganancia - a.Ganancia).slice(0, 15);
   const bot = conMovs.slice().sort((a, b) => a.Ganancia - b.Ganancia).slice(0, 15);
   const ce = document.getElementById('chart-top-rent');
@@ -1049,8 +1204,8 @@ function renderRentChart() {
     if (charts.topRent) charts.topRent.destroy();
     charts.topRent = new Chart(ce, {
       type: 'bar',
-      data: { labels: top.map(r => r.File_Num), datasets: [{ label: 'Ganancia', data: top.map(r => r.Ganancia), backgroundColor: '#2EA043', borderRadius: 3 }] },
-      options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#7D8590' }, grid: { color: '#30363D' } }, y: { ticks: { color: '#7D8590', font: { size: 9 } }, grid: { color: '#30363D' } } } }
+      data: { labels: top.map(r => r.File_Num), datasets: [{ label: 'Ganancia', data: top.map(r => r.Ganancia), backgroundColor: '#2E7D5B', borderRadius: 3 }] },
+      options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#5A6B7E' }, grid: { color: '#D9E0E9' } }, y: { ticks: { color: '#5A6B7E', font: { size: 9 } }, grid: { color: '#D9E0E9' } } } }
     });
   }
   const cb = document.getElementById('chart-bot-rent');
@@ -1058,8 +1213,8 @@ function renderRentChart() {
     if (charts.botRent) charts.botRent.destroy();
     charts.botRent = new Chart(cb, {
       type: 'bar',
-      data: { labels: bot.map(r => r.File_Num), datasets: [{ label: 'Ganancia', data: bot.map(r => r.Ganancia), backgroundColor: bot.map(r => r.Ganancia < 0 ? '#F85149' : '#E3B341'), borderRadius: 3 }] },
-      options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#7D8590' }, grid: { color: '#30363D' } }, y: { ticks: { color: '#7D8590', font: { size: 9 } }, grid: { color: '#30363D' } } } }
+      data: { labels: bot.map(r => r.File_Num), datasets: [{ label: 'Ganancia', data: bot.map(r => r.Ganancia), backgroundColor: bot.map(r => r.Ganancia < 0 ? '#C0392B' : '#B7791F'), borderRadius: 3 }] },
+      options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#5A6B7E' }, grid: { color: '#D9E0E9' } }, y: { ticks: { color: '#5A6B7E', font: { size: 9 } }, grid: { color: '#D9E0E9' } } } }
     });
   }
 }
@@ -1068,7 +1223,7 @@ function renderRentChart() {
    COMPLETOS / PENDIENTES / EGRESOS (mejoradas)
    ============================================================ */
 function renderCompletos() {
-  const rows = state.result.cruce.filter(r => r.Estado === 'COBRO COMPLETO').sort((a, b) => b.Total - a.Total);
+  const rows = viewCruce().filter(r => r.Estado === 'COBRO COMPLETO').sort((a, b) => b.Total - a.Total);
   const T = (k) => rows.reduce((s, r) => s + (r[k] || 0), 0);
   const cols = [
     { key: 'File_Num', label: 'FILE', mono: true },
@@ -1092,7 +1247,7 @@ function renderCompletos() {
 }
 
 function renderPendientes() {
-  const rows = state.result.cruce.filter(r => ['PENDIENTE COBRO', 'COBRO PARCIAL'].includes(r.Estado)).sort((a, b) => b.Pendiente - a.Pendiente);
+  const rows = viewCruce().filter(r => ['PENDIENTE COBRO', 'COBRO PARCIAL'].includes(r.Estado)).sort((a, b) => b.Pendiente - a.Pendiente);
   const T = (k) => rows.reduce((s, r) => s + (r[k] || 0), 0);
   const cols = [
     { key: 'File_Num', label: 'FILE', mono: true },
@@ -1116,8 +1271,8 @@ function renderPendientes() {
 }
 
 function renderEgresos() {
-  const rows = state.result.cruce.filter(r => r.Eg_Total > 0).sort((a, b) => b.Eg_Total - a.Eg_Total);
-  const sinFile = state.result.egSinFile;
+  const rows = viewCruce().filter(r => r.Eg_Total > 0).sort((a, b) => b.Eg_Total - a.Eg_Total);
+  const sinFile = state.mesFiltro === 'ALL' ? state.result.egSinFile : state.result.egSinFile.filter(e => monthKey(e.Fecha) === state.mesFiltro);
   const T = (k) => rows.reduce((s, r) => s + (r[k] || 0), 0);
   const cols = [
     { key: 'File_Num', label: 'FILE', mono: true },
@@ -1152,7 +1307,8 @@ function renderEgresos() {
    BANCOS / MONEDAS
    ============================================================ */
 function renderBancos() {
-  const { byBanco, byMoneda, cruce } = state.result;
+  const cruce = viewCruce();
+  const { byBanco, byMoneda } = computeAggregates(cruce);
   const allIngTx = cruce.flatMap(r => r.Ingresos);
   const allEgTx  = cruce.flatMap(r => r.Egresos);
   const totalTx = allIngTx.length + allEgTx.length;
@@ -1230,15 +1386,15 @@ function renderBancos() {
 
 function renderBancosCharts() {
   if (!state.result) return;
-  const { byMoneda, byBanco } = state.result;
+  const { byMoneda, byBanco } = computeAggregates(viewCruce());
   // Moneda charts
   const mie = document.getElementById('chart-mon-ing');
   if (mie && (byMoneda.USD.ing > 0 || byMoneda.PEN.ing > 0)) {
     if (charts.monIng) charts.monIng.destroy();
     charts.monIng = new Chart(mie, {
       type: 'doughnut',
-      data: { labels: ['USD', 'PEN', 'Sin moneda'], datasets: [{ data: [byMoneda.USD.ing, byMoneda.PEN.ing, byMoneda.DESCONOCIDA.ing], backgroundColor: ['#1F6FEB','#E3B341','#7D8590'], borderColor: '#21262D', borderWidth: 2 }] },
-      options: { plugins: { legend: { labels: { color: '#E6EDF3', font: { size: 11 } } } }, cutout: '60%' }
+      data: { labels: ['USD', 'PEN', 'Sin moneda'], datasets: [{ data: [byMoneda.USD.ing, byMoneda.PEN.ing, byMoneda.DESCONOCIDA.ing], backgroundColor: ['#1F4E79','#B7791F','#5A6B7E'], borderColor: '#FFFFFF', borderWidth: 2 }] },
+      options: { plugins: { legend: { labels: { color: '#1E2A3A', font: { size: 11 } } } }, cutout: '60%' }
     });
   }
   const mee = document.getElementById('chart-mon-eg');
@@ -1246,8 +1402,8 @@ function renderBancosCharts() {
     if (charts.monEg) charts.monEg.destroy();
     charts.monEg = new Chart(mee, {
       type: 'doughnut',
-      data: { labels: ['USD', 'PEN', 'Sin moneda'], datasets: [{ data: [byMoneda.USD.eg, byMoneda.PEN.eg, byMoneda.DESCONOCIDA.eg], backgroundColor: ['#1F6FEB','#E3B341','#7D8590'], borderColor: '#21262D', borderWidth: 2 }] },
-      options: { plugins: { legend: { labels: { color: '#E6EDF3', font: { size: 11 } } } }, cutout: '60%' }
+      data: { labels: ['USD', 'PEN', 'Sin moneda'], datasets: [{ data: [byMoneda.USD.eg, byMoneda.PEN.eg, byMoneda.DESCONOCIDA.eg], backgroundColor: ['#1F4E79','#B7791F','#5A6B7E'], borderColor: '#FFFFFF', borderWidth: 2 }] },
+      options: { plugins: { legend: { labels: { color: '#1E2A3A', font: { size: 11 } } } }, cutout: '60%' }
     });
   }
   // Bank charts
@@ -1260,11 +1416,11 @@ function renderBancosCharts() {
       data: {
         labels: bancosData.map(([k]) => k),
         datasets: [
-          { label: 'Ingresos', data: bancosData.map(([,v]) => v.ingTx), backgroundColor: '#2EA043', borderRadius: 3 },
-          { label: 'Egresos',  data: bancosData.map(([,v]) => v.egTx),  backgroundColor: '#F85149', borderRadius: 3 }
+          { label: 'Ingresos', data: bancosData.map(([,v]) => v.ingTx), backgroundColor: '#2E7D5B', borderRadius: 3 },
+          { label: 'Egresos',  data: bancosData.map(([,v]) => v.egTx),  backgroundColor: '#C0392B', borderRadius: 3 }
         ]
       },
-      options: { plugins: { legend: { labels: { color: '#E6EDF3', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#7D8590', font: { size: 10 } }, grid: { color: '#30363D' } }, y: { ticks: { color: '#7D8590' }, grid: { color: '#30363D' } } } }
+      options: { plugins: { legend: { labels: { color: '#1E2A3A', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#5A6B7E', font: { size: 10 } }, grid: { color: '#D9E0E9' } }, y: { ticks: { color: '#5A6B7E' }, grid: { color: '#D9E0E9' } } } }
     });
   }
   const bve = document.getElementById('chart-banco-vol');
@@ -1276,11 +1432,108 @@ function renderBancosCharts() {
       data: {
         labels: bancosVol.map(([k]) => k),
         datasets: [
-          { label: 'Ingresos', data: bancosVol.map(([,v]) => v.ingMonto), backgroundColor: '#2EA043', borderRadius: 3 },
-          { label: 'Egresos',  data: bancosVol.map(([,v]) => v.egMonto),  backgroundColor: '#F85149', borderRadius: 3 }
+          { label: 'Ingresos', data: bancosVol.map(([,v]) => v.ingMonto), backgroundColor: '#2E7D5B', borderRadius: 3 },
+          { label: 'Egresos',  data: bancosVol.map(([,v]) => v.egMonto),  backgroundColor: '#C0392B', borderRadius: 3 }
         ]
       },
-      options: { plugins: { legend: { labels: { color: '#E6EDF3', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#7D8590', font: { size: 10 } }, grid: { color: '#30363D' } }, y: { ticks: { color: '#7D8590' }, grid: { color: '#30363D' } } } }
+      options: { plugins: { legend: { labels: { color: '#1E2A3A', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#5A6B7E', font: { size: 10 } }, grid: { color: '#D9E0E9' } }, y: { ticks: { color: '#5A6B7E' }, grid: { color: '#D9E0E9' } } } }
+    });
+  }
+}
+
+/* ============================================================
+   COMPARATIVO MENSUAL — análisis mes a mes
+   ============================================================ */
+function setMesYVer(mes, criterio, tab) {
+  state.mesFiltro = mes; state.mesCriterio = criterio; state.selectedFile = null;
+  switchTab(tab);
+}
+function renderMensual() {
+  const data = buildMensual();
+  if (!data.length) return `<h2 class="section-title">📅 Comparativo Mensual</h2><div class="help-tip">ℹ️ No se detectaron fechas en los archivos. Verifica que el Maestro y los archivos de ingresos/egresos incluyan columna <strong>"Fecha"</strong>.</div>`;
+  const T = (k) => data.reduce((s, [, v]) => s + (v[k] || 0), 0);
+  const rows = data.map(([mes, s]) => {
+    const flujo = s.ingMonto - s.egMonto;
+    const pctPerdida = s.filesGen > 0 ? (s.filesPerdida / s.filesGen * 100) : 0;
+    return `<tr>
+      <td><span class="badge mes" style="font-size:11px">${monthLabel(mes)}</span></td>
+      <td class="num">${s.filesGen}</td>
+      <td class="num">${fmtN(s.maestroGen)}</td>
+      <td class="num pos">${fmtN(s.ingMonto)} <span style="color:var(--muted)">(${s.ingTx} tx)</span></td>
+      <td class="num neg">${fmtN(s.egMonto)} <span style="color:var(--muted)">(${s.egTx} tx)</span></td>
+      <td class="num"><strong style="color:${flujo >= 0 ? 'var(--completo)' : 'var(--danger)'}">${fmtN(flujo)}</strong></td>
+      <td class="num">${s.filesPerdida > 0 ? `<span class="badge perdida">${s.filesPerdida}</span> <span style="color:var(--muted)">(${pctPerdida.toFixed(0)}%)</span>` : '<span style="color:var(--completo)">0</span>'}</td>
+      <td class="num">${s.filesSinIngreso > 0 ? `<span class="badge pendiente">${s.filesSinIngreso}</span>` : '0'}</td>
+      <td class="num">${s.filesPendientes}</td>
+      <td class="num pos">${s.filesCompletos}</td>
+      <td class="num neg">${fmtN(s.pendienteGen)}</td>
+      <td><button class="uz-btn" style="padding:4px 10px;font-size:11px" onclick="setMesYVer('${mes}','gen','cruce')">Ver files →</button></td>
+    </tr>`;
+  }).join('');
+  const totFlujo = T('ingMonto') - T('egMonto');
+  return `<h2 class="section-title">📅 Comparativo Mensual</h2>
+    <p class="section-sub">Comparación mes a mes: files generados, lo que nos pagaron (ingresos), lo que pagamos (egresos), y cuántos files terminan en PÉRDIDA o SIN INGRESO reconocido cada mes. Los conteos de files se asignan al <strong>mes de generación</strong> del file; los montos de ingresos/egresos al mes real de cada transacción.</p>
+    <div class="help-tip">💡 <strong>¿Files en pérdida o sin ingreso?</strong> Suelen ser files donde aún no se recibe el insumo para reconocer los ingresos (solo se registraron egresos). Usa "Ver files →" para listar los files de ese mes y revisar el detalle, o el filtro 📅 de las otras pestañas.</div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr)">
+      <div class="kpi-card blue"><div class="kpi-label">Meses con actividad</div><div class="kpi-value">${data.length}</div></div>
+      <div class="kpi-card green"><div class="kpi-label">Total nos pagaron</div><div class="kpi-value" style="font-size:16px">${fmtN(T('ingMonto'))}</div><div class="kpi-sub">${T('ingTx')} transacciones</div></div>
+      <div class="kpi-card red"><div class="kpi-label">Total pagamos</div><div class="kpi-value" style="font-size:16px">${fmtN(T('egMonto'))}</div><div class="kpi-sub">${T('egTx')} transacciones</div></div>
+      <div class="kpi-card ${totFlujo >= 0 ? 'green' : 'red'}"><div class="kpi-label">Flujo Neto</div><div class="kpi-value" style="font-size:16px;color:${totFlujo >= 0 ? 'var(--completo)' : 'var(--danger)'}">${fmtN(totFlujo)}</div></div>
+      <div class="kpi-card orange"><div class="kpi-label">Files en Pérdida</div><div class="kpi-value">${T('filesPerdida')}</div><div class="kpi-sub">${T('filesSinIngreso')} sin ingreso reconocido</div></div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-card"><div class="chart-title">💰 Nos pagaron vs 💸 Pagamos — por mes (con flujo neto)</div><canvas id="chart-mes-flujo" style="max-height:260px"></canvas></div>
+      <div class="chart-card"><div class="chart-title">🚨 Files en Pérdida / Sin Ingreso / Pendientes / Completos — por mes de generación</div><canvas id="chart-mes-estados" style="max-height:260px"></canvas></div>
+    </div>
+    <div class="table-controls">
+      <span class="count-badge">Tabla comparativa por mes · clic en "Ver files" para filtrar ese mes</span>
+      <button class="export-btn" onclick="exportExcel()">⬇ Excel (incluye hoja mensual)</button>
+    </div>
+    <div class="tbl-wrap">
+      <table><thead><tr>
+        <th>MES</th><th class="num">FILES GENERADOS</th><th class="num">MONTO MAESTRO</th><th class="num">NOS PAGARON (ING)</th><th class="num">PAGAMOS (EG)</th><th class="num">FLUJO NETO</th><th class="num">EN PÉRDIDA</th><th class="num">SIN INGRESO</th><th class="num">PENDIENTES</th><th class="num">COMPLETOS</th><th class="num">PEND. COBRO $</th><th></th>
+      </tr></thead><tbody>${rows}</tbody>
+      <tfoot><tr><td><strong>TOTAL</strong></td><td class="num">${T('filesGen')}</td><td class="num">${fmtN(T('maestroGen'))}</td><td class="num">${fmtN(T('ingMonto'))}</td><td class="num">${fmtN(T('egMonto'))}</td><td class="num"><strong style="color:${totFlujo >= 0 ? 'var(--completo)' : 'var(--danger)'}">${fmtN(totFlujo)}</strong></td><td class="num">${T('filesPerdida')}</td><td class="num">${T('filesSinIngreso')}</td><td class="num">${T('filesPendientes')}</td><td class="num">${T('filesCompletos')}</td><td class="num">${fmtN(T('pendienteGen'))}</td><td></td></tr></tfoot>
+      </table>
+    </div>`;
+}
+
+function renderMensualCharts() {
+  if (!state.result) return;
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
+  const data = buildMensual();
+  if (!data.length) return;
+  const labels = data.map(([m]) => monthLabel(m));
+  const fe = document.getElementById('chart-mes-flujo');
+  if (fe) {
+    charts.mesFlujo = new Chart(fe, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Nos pagaron (Ing)', data: data.map(([, s]) => s.ingMonto), backgroundColor: '#2E7D5B', borderRadius: 3 },
+          { label: 'Pagamos (Eg)', data: data.map(([, s]) => s.egMonto), backgroundColor: '#C0392B', borderRadius: 3 },
+          { label: 'Flujo neto', data: data.map(([, s]) => s.ingMonto - s.egMonto), type: 'line', borderColor: '#1F4E79', backgroundColor: '#1F4E79', tension: .3 }
+        ]
+      },
+      options: { plugins: { legend: { labels: { color: '#1E2A3A', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#5A6B7E' }, grid: { color: '#D9E0E9' } }, y: { ticks: { color: '#5A6B7E' }, grid: { color: '#D9E0E9' } } } }
+    });
+  }
+  const ee = document.getElementById('chart-mes-estados');
+  if (ee) {
+    charts.mesEstados = new Chart(ee, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'En Pérdida', data: data.map(([, s]) => s.filesPerdida), backgroundColor: '#C0392B', borderRadius: 3 },
+          { label: 'Sin Ingreso', data: data.map(([, s]) => s.filesSinIngreso), backgroundColor: '#D97706', borderRadius: 3 },
+          { label: 'Pendientes/Parciales', data: data.map(([, s]) => s.filesPendientes), backgroundColor: '#B7791F', borderRadius: 3 },
+          { label: 'Completos', data: data.map(([, s]) => s.filesCompletos), backgroundColor: '#2E7D5B', borderRadius: 3 }
+        ]
+      },
+      options: { plugins: { legend: { labels: { color: '#1E2A3A', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#5A6B7E' }, grid: { color: '#D9E0E9' } }, y: { ticks: { color: '#5A6B7E' }, grid: { color: '#D9E0E9' }, beginAtZero: true } } }
     });
   }
 }
@@ -1342,26 +1595,37 @@ function exportExcel() {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resumen), '1.RESUMEN');
 
   // 2. CRUCE COMPLETO con ganancia
-  const cruceCols = ['File_Num', 'Pasajero', 'Agencia', 'Total', 'Ing_Total', 'Eg_Total', 'Pendiente', 'Ganancia', 'Margen', 'MargenMaestro', 'Moneda', 'Ing_USD', 'Ing_PEN', 'Eg_USD', 'Eg_PEN', 'Est_Ing', 'Est_Eg', 'Estado', 'Criticidad', 'AlertaRentabilidad', 'AgingBucket', 'DiasDesdeInicio', 'DiasSinIngreso', 'NumIngresos', 'NumEgresos', 'SaldoCobrar'];
-  const cruceHdr = ['FILE', 'PASAJERO', 'AGENCIA', 'TOTAL MAESTRO', 'INGRESOS', 'EGRESOS', 'PENDIENTE', 'GANANCIA', 'MARGEN%', '%MAESTRO', 'MONEDA', 'ING USD', 'ING PEN', 'EG USD', 'EG PEN', 'EST.ING', 'EST.EG', 'ESTADO', 'CRITICIDAD', 'ALERTA RENT', 'AGING', 'DIAS DESDE INICIO', 'DIAS SIN COBRO', '#ING', '#EG', 'SALDO COBRAR'];
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([cruceHdr, ...cruce.map(r => cruceCols.map(k => r[k]))]), '2.CRUCE COMPLETO');
+  const cruceCols = ['File_Num', 'Pasajero', 'Agencia', 'MesGeneracion', 'MesCobro', 'MesPago', 'Total', 'Ing_Total', 'Eg_Total', 'Pendiente', 'Ganancia', 'Margen', 'MargenMaestro', 'Moneda', 'Ing_USD', 'Ing_PEN', 'Eg_USD', 'Eg_PEN', 'Est_Ing', 'Est_Eg', 'Estado', 'Criticidad', 'AlertaRentabilidad', 'AgingBucket', 'DiasDesdeInicio', 'DiasSinIngreso', 'NumIngresos', 'NumEgresos', 'SaldoCobrar'];
+  const cruceHdr = ['FILE', 'PASAJERO', 'AGENCIA', 'MES GENERADO', 'MES NOS PAGARON', 'MES PAGAMOS', 'TOTAL MAESTRO', 'INGRESOS', 'EGRESOS', 'PENDIENTE', 'GANANCIA', 'MARGEN%', '%MAESTRO', 'MONEDA', 'ING USD', 'ING PEN', 'EG USD', 'EG PEN', 'EST.ING', 'EST.EG', 'ESTADO', 'CRITICIDAD', 'ALERTA RENT', 'AGING', 'DIAS DESDE INICIO', 'DIAS SIN COBRO', '#ING', '#EG', 'SALDO COBRAR'];
+  const cruceCell = (r, k) => ['MesGeneracion', 'MesCobro', 'MesPago'].includes(k) ? monthLabel(r[k]) : r[k];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([cruceHdr, ...cruce.map(r => cruceCols.map(k => cruceCell(r, k)))]), '2.CRUCE COMPLETO');
+
+  // 2B. COMPARATIVO MENSUAL
+  const mensualData = buildMensual();
+  if (mensualData.length) {
+    const menHdr = ['MES', 'FILES GENERADOS', 'MONTO MAESTRO', 'NOS PAGARON (ING)', '#TX ING', 'PAGAMOS (EG)', '#TX EG', 'FLUJO NETO', 'FILES EN PÉRDIDA', 'FILES SIN INGRESO', 'FILES PENDIENTES/PARCIALES', 'FILES COMPLETOS', 'PENDIENTE COBRO $'];
+    const menRows = mensualData.map(([mes, s]) => [monthLabel(mes), s.filesGen, s.maestroGen, s.ingMonto, s.ingTx, s.egMonto, s.egTx, s.ingMonto - s.egMonto, s.filesPerdida, s.filesSinIngreso, s.filesPendientes, s.filesCompletos, s.pendienteGen]);
+    const TM = (i) => menRows.reduce((a, r) => a + (typeof r[i] === 'number' ? r[i] : 0), 0);
+    menRows.push(['TOTAL', TM(1), TM(2), TM(3), TM(4), TM(5), TM(6), TM(7), TM(8), TM(9), TM(10), TM(11), TM(12)]);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([menHdr, ...menRows]), '2B.COMPARATIVO MENSUAL');
+  }
 
   // 3. TRAZABILIDAD INGRESOS (todos los abonos)
-  const ingHdr = ['FILE', 'PASAJERO', 'AGENCIA', 'FECHA', 'RECIBO', 'MONTO', 'MONEDA', 'BANCO', 'CONCEPTO', 'REFERENCIA', 'ARCHIVO ORIGEN'];
+  const ingHdr = ['FILE', 'PASAJERO', 'AGENCIA', 'FECHA', 'MES', 'RECIBO', 'MONTO', 'MONEDA', 'BANCO', 'CONCEPTO', 'REFERENCIA', 'ARCHIVO ORIGEN'];
   const ingRows = [];
   for (const r of cruce) {
     for (const i of r.Ingresos) {
-      ingRows.push([r.File_Num, r.Pasajero, r.Agencia, i.Fecha ? fmtDate(i.Fecha) : '', i.Recibo, i.Monto, i.Moneda || '', i.Banco || '', i.Concepto, i.Referencia, i.Filename]);
+      ingRows.push([r.File_Num, r.Pasajero, r.Agencia, i.Fecha ? fmtDate(i.Fecha) : '', monthLabel(monthKey(i.Fecha)) === '—' ? '' : monthLabel(monthKey(i.Fecha)), i.Recibo, i.Monto, i.Moneda || '', i.Banco || '', i.Concepto, i.Referencia, i.Filename]);
     }
   }
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([ingHdr, ...ingRows]), '3.TRAZ INGRESOS');
 
   // 4. TRAZABILIDAD EGRESOS (todos los pagos)
-  const egHdr = ['FILE', 'PASAJERO', 'AGENCIA', 'FECHA', 'RECIBO', 'MONTO', 'MONEDA', 'BANCO', 'CONCEPTO/PROV', 'REFERENCIA', 'ARCHIVO ORIGEN'];
+  const egHdr = ['FILE', 'PASAJERO', 'AGENCIA', 'FECHA', 'MES', 'RECIBO', 'MONTO', 'MONEDA', 'BANCO', 'CONCEPTO/PROV', 'REFERENCIA', 'ARCHIVO ORIGEN'];
   const egRowsAll = [];
   for (const r of cruce) {
     for (const e of r.Egresos) {
-      egRowsAll.push([r.File_Num, r.Pasajero, r.Agencia, e.Fecha ? fmtDate(e.Fecha) : '', e.Recibo, e.Monto, e.Moneda || '', e.Banco || '', e.Concepto || e.Proveedor, e.Referencia, e.Filename]);
+      egRowsAll.push([r.File_Num, r.Pasajero, r.Agencia, e.Fecha ? fmtDate(e.Fecha) : '', monthLabel(monthKey(e.Fecha)) === '—' ? '' : monthLabel(monthKey(e.Fecha)), e.Recibo, e.Monto, e.Moneda || '', e.Banco || '', e.Concepto || e.Proveedor, e.Referencia, e.Filename]);
     }
   }
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([egHdr, ...egRowsAll]), '4.TRAZ EGRESOS');
@@ -1398,11 +1662,11 @@ function exportExcel() {
 
   // 8. COMPLETOS
   const compRows = cruce.filter(r => r.Estado === 'COBRO COMPLETO').sort((a, b) => b.Total - a.Total);
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([cruceHdr, ...compRows.map(r => cruceCols.map(k => r[k]))]), '8.COMPLETOS');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([cruceHdr, ...compRows.map(r => cruceCols.map(k => cruceCell(r, k)))]), '8.COMPLETOS');
 
   // 9. PENDIENTES
   const pendRows = cruce.filter(r => ['PENDIENTE COBRO', 'COBRO PARCIAL'].includes(r.Estado)).sort((a, b) => b.Pendiente - a.Pendiente);
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([cruceHdr, ...pendRows.map(r => cruceCols.map(k => r[k]))]), '9.PENDIENTES');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([cruceHdr, ...pendRows.map(r => cruceCols.map(k => cruceCell(r, k)))]), '9.PENDIENTES');
 
   // 10. EGRESOS SIN FILE
   if (egSinFile.length) {
@@ -1427,6 +1691,7 @@ function exportHTML() {
       Est_Ing: r.Est_Ing, Est_Eg: r.Est_Eg, Estado: r.Estado,
       Criticidad: r.Criticidad, AlertaRentabilidad: r.AlertaRentabilidad, AgingBucket: r.AgingBucket,
       DiasDesdeInicio: r.DiasDesdeInicio, DiasSinIngreso: r.DiasSinIngreso,
+      MesGeneracion: r.MesGeneracion, MesCobro: r.MesCobro, MesPago: r.MesPago,
       PrimeraActividad: r.PrimeraActividad ? r.PrimeraActividad.toISOString() : null,
       UltimaActividad: r.UltimaActividad ? r.UltimaActividad.toISOString() : null,
       UltimoIngreso: r.UltimoIngreso ? r.UltimoIngreso.toISOString() : null,
@@ -1437,6 +1702,7 @@ function exportHTML() {
     totals: state.result.totals,
     byEstado: state.result.byEstado,
     profitTotals: state.result.profitTotals,
+    mensual: buildMensual(),
     generatedAt: new Date().toISOString()
   };
   const dataStr = JSON.stringify(compact);
@@ -1455,18 +1721,18 @@ function buildStandaloneReport(dataStr) {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"><\/script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
-:root{--bg:#0D1117;--surface:#161B22;--surface2:#1C2330;--border:#30363D;--accent:#2EA043;--accent2:#1F6FEB;--warn:#E3B341;--danger:#F85149;--purple:#8957E5;--text:#E6EDF3;--muted:#7D8590;--card:#21262D;--completo:#2EA043;--parcial:#E3B341;--pendiente:#F85149;--excedente:#8957E5;}
+:root{--bg:#F2F5F9;--surface:#FFFFFF;--surface2:#EDF1F6;--border:#D9E0E9;--accent:#2E7D5B;--accent2:#1F4E79;--warn:#B7791F;--danger:#C0392B;--purple:#6B5B95;--text:#1E2A3A;--muted:#5A6B7E;--card:#FFFFFF;--completo:#2E7D5B;--parcial:#B7791F;--pendiente:#C0392B;--excedente:#6B5B95;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;}
 .header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:12px;}
-.logo{width:36px;height:36px;background:linear-gradient(135deg,#2EA043,#1F6FEB);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Space Mono';font-weight:700;color:#fff;}
+.logo{width:36px;height:36px;background:linear-gradient(135deg,#2E7D5B,#1F4E79);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Space Mono';font-weight:700;color:#fff;}
 .tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;overflow-x:auto;}
 .tab{padding:10px 16px;cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;}
 .tab.active{color:var(--text);border-bottom-color:var(--accent2);}
 .main{padding:24px;max-width:1500px;margin:0 auto;}
 .kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px;}
 .kpi-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;}
-.kpi-card.green{border-left:3px solid var(--completo);}.kpi-card.red{border-left:3px solid var(--pendiente);}.kpi-card.blue{border-left:3px solid var(--accent2);}.kpi-card.yellow{border-left:3px solid var(--parcial);}.kpi-card.purple{border-left:3px solid var(--purple);}.kpi-card.orange{border-left:3px solid #FF9500;}
+.kpi-card.green{border-left:3px solid var(--completo);}.kpi-card.red{border-left:3px solid var(--pendiente);}.kpi-card.blue{border-left:3px solid var(--accent2);}.kpi-card.yellow{border-left:3px solid var(--parcial);}.kpi-card.purple{border-left:3px solid var(--purple);}.kpi-card.orange{border-left:3px solid #D97706;}
 .kpi-label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;}.kpi-value{font-size:22px;font-weight:700;font-family:'Space Mono';}.kpi-sub{font-size:11px;color:var(--muted);margin-top:3px;}
 .chart-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:16px;}
 .chart-title{font-size:13px;font-weight:600;color:var(--muted);margin-bottom:14px;text-transform:uppercase;}
@@ -1484,8 +1750,8 @@ tbody tr:hover{background:var(--surface2);}
 tbody td{padding:9px 12px;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;}
 .mono{font-family:'Space Mono';font-size:11px;}.num{text-align:right;font-family:'Space Mono';font-size:11px;}.neg{color:var(--danger);}
 .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;}
-.badge.completo{background:rgba(46,160,67,.2);color:#56d364;}.badge.parcial{background:rgba(227,179,65,.2);color:#e3b341;}.badge.pendiente{background:rgba(248,81,73,.2);color:#f85149;}.badge.excedente{background:rgba(137,87,229,.2);color:#a371f7;}
-.badge.critica{background:rgba(248,81,73,.25);color:#ff6b62;}.badge.alta{background:rgba(255,150,50,.2);color:#ffa657;}.badge.media{background:rgba(227,179,65,.2);color:#e3b341;}.badge.baja{background:rgba(46,160,67,.2);color:#56d364;}.badge.perdida{background:rgba(248,81,73,.3);color:#fff;border:1px solid var(--danger);}
+.badge.completo{background:rgba(46,125,91,.2);color:#1F6B4A;}.badge.parcial{background:rgba(183,121,31,.2);color:#946215;}.badge.pendiente{background:rgba(192,57,43,.2);color:#C0392B;}.badge.excedente{background:rgba(107,91,149,.2);color:#5D4E8C;}
+.badge.critica{background:rgba(192,57,43,.25);color:#A93226;}.badge.alta{background:rgba(217,119,6,.2);color:#B45309;}.badge.media{background:rgba(183,121,31,.2);color:#946215;}.badge.baja{background:rgba(46,125,91,.2);color:#1F6B4A;}.badge.perdida{background:#C0392B;color:#fff;}
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:100;padding:20px;}
 .modal-bg.show{display:flex;}
 .modal{background:var(--card);border:1px solid var(--border);border-radius:14px;max-width:1100px;width:100%;max-height:90vh;overflow-y:auto;padding:24px;}
@@ -1497,21 +1763,24 @@ tbody td{padding:9px 12px;white-space:nowrap;max-width:200px;overflow:hidden;tex
 .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;}
 .aging-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px;}
 .aging-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;}
-.aging-card.b0{border-top:3px solid #56d364;}.aging-card.b1{border-top:3px solid #e3b341;}.aging-card.b2{border-top:3px solid #ffa657;}.aging-card.b3{border-top:3px solid #f85149;}.aging-card.b4{border-top:3px solid #c9302c;}
+.aging-card.b0{border-top:3px solid #1F6B4A;}.aging-card.b1{border-top:3px solid #946215;}.aging-card.b2{border-top:3px solid #B45309;}.aging-card.b3{border-top:3px solid #C0392B;}.aging-card.b4{border-top:3px solid #7F1D1D;}
 .aging-count{font-size:24px;font-weight:700;font-family:'Space Mono';margin:6px 0 2px;}.aging-amount{font-size:11px;color:var(--muted);font-family:'Space Mono';}.aging-label{font-size:11px;color:var(--muted);font-weight:600;}
-</style></head><body>
+thead th{background:#1F4E79;color:#FFFFFF;border-bottom:2px solid #16395A;}tbody tr:nth-child(even){background:#F8FAFC;}tbody tr:hover{background:#E8EFF7;}.chart-card,.kpi-card,.aging-card,.tbl-wrap,.modal{box-shadow:0 1px 3px rgba(30,42,58,.07);}</style></head><body>
 <div class="header"><div class="logo">V</div><div><div style="font-size:16px;font-weight:700">Vacacionate SAC — Dashboard Dinámico</div><div style="font-size:11px;color:var(--muted)">Reporte exportado · Datos embebidos · Sin necesidad de re-cargar archivos</div></div><div style="margin-left:auto;font-size:12px;color:var(--muted);font-family:'Space Mono'" id="gen-date"></div></div>
-<div class="tabs"><div class="tab active" data-t="dash">📊 Dashboard</div><div class="tab" data-t="cruce">📋 Cruce</div><div class="tab" data-t="criticos">🚨 Críticos</div><div class="tab" data-t="rent">💰 Rentabilidad</div></div>
+<div class="tabs"><div class="tab active" data-t="dash">📊 Dashboard</div><div class="tab" data-t="mensual">📅 Mensual</div><div class="tab" data-t="cruce">📋 Cruce</div><div class="tab" data-t="criticos">🚨 Críticos</div><div class="tab" data-t="rent">💰 Rentabilidad</div></div>
 <div class="main" id="content"></div>
 <div class="modal-bg" id="modal-bg" onclick="if(event.target.id==='modal-bg')closeModal()"><div class="modal" id="modal"></div></div>
 <script>
 const DATA = ${dataStr};
-let cur = 'dash', filter='ALL', search='', sortKey=null, sortDir='desc';
+let cur = 'dash', filter='ALL', search='', sortKey=null, sortDir='desc', mesFilter='ALL';
 let chartObjs = {};
 const fmt = (n)=>(n||0).toLocaleString('es-PE',{style:'currency',currency:'USD',minimumFractionDigits:2});
 const fmtN = (n)=>(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtPct = (n)=>isFinite(n)?n.toFixed(1)+'%':'—';
 const fmtDate = (s)=>{ if(!s)return'—'; const d=new Date(s); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();};
+const MESA=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const mLbl=(k)=>{if(!k)return'—';const p=String(k).split('-');return (MESA[parseInt(p[1])-1]||p[1])+' '+p[0];};
+const mesesDisp=()=>{const st=new Set();for(const r of DATA.cruce){if(r.MesGeneracion)st.add(r.MesGeneracion);}return [...st].sort();};
 const badgeCls = (e)=>{if(['COBRO COMPLETO','COMPLETO','OK'].includes(e))return'completo';if(['COBRO PARCIAL','PAGO PARCIAL','MARGEN MEDIO'].includes(e))return'parcial';if(['PENDIENTE COBRO','SIN INGRESO','SIN MOVIMIENTOS'].includes(e))return'pendiente';if(['EXCEDENTE','INGRESO MAYOR'].includes(e))return'excedente';if(e==='CRÍTICA')return'critica';if(e==='ALTA')return'alta';if(['MEDIA','MARGEN BAJO'].includes(e))return'media';if(e==='BAJA')return'baja';if(['PÉRDIDA','SOLO EGRESOS'].includes(e))return'perdida';return'';};
 document.getElementById('gen-date').textContent = 'Generado: '+fmtDate(DATA.generatedAt);
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{cur=t.dataset.t;document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===t));render();});
@@ -1522,6 +1791,9 @@ function buildRow(r){return '<tr onclick="showDetail(\\''+r.File_Num+'\\')">'+
 '<td class="mono">'+r.File_Num+'</td>'+
 '<td title="'+(r.Pasajero||'')+'">'+(r.Pasajero||'—')+'</td>'+
 '<td title="'+(r.Agencia||'')+'">'+(r.Agencia||'—')+'</td>'+
+'<td class="mono">'+mLbl(r.MesGeneracion)+'</td>'+
+'<td class="mono">'+mLbl(r.MesCobro)+'</td>'+
+'<td class="mono">'+mLbl(r.MesPago)+'</td>'+
 '<td class="num">'+fmtN(r.Total)+'</td>'+
 '<td class="num">'+fmtN(r.Ing_Total)+'</td>'+
 '<td class="num">'+fmtN(r.Eg_Total)+'</td>'+
@@ -1530,7 +1802,7 @@ function buildRow(r){return '<tr onclick="showDetail(\\''+r.File_Num+'\\')">'+
 '<td class="num">'+fmtPct(r.Margen)+'</td>'+
 '<td><span class="badge '+badgeCls(r.Criticidad)+'">'+r.Criticidad+'</span></td>'+
 '<td><span class="badge '+badgeCls(r.Estado)+'">'+r.Estado+'</span></td></tr>';}
-function render(){destroyCharts();const el=document.getElementById('content');if(cur==='dash')renderDash(el);else if(cur==='cruce')renderCruce(el);else if(cur==='criticos')renderCriticos(el);else if(cur==='rent')renderRent(el);}
+function render(){destroyCharts();const el=document.getElementById('content');if(cur==='dash')renderDash(el);else if(cur==='mensual')renderMensual(el);else if(cur==='cruce')renderCruce(el);else if(cur==='criticos')renderCriticos(el);else if(cur==='rent')renderRent(el);}
 function renderDash(el){const t=DATA.totals,p=DATA.profitTotals;el.innerHTML='<div class="kpi-grid">'+
 '<div class="kpi-card blue"><div class="kpi-label">Files</div><div class="kpi-value">'+t.files+'</div></div>'+
 '<div class="kpi-card blue"><div class="kpi-label">Maestro</div><div class="kpi-value" style="font-size:16px">'+fmt(t.maestro)+'</div></div>'+
@@ -1547,14 +1819,15 @@ function renderDash(el){const t=DATA.totals,p=DATA.profitTotals;el.innerHTML='<d
 '</div>'+
 '<div class="charts-row"><div class="chart-card"><div class="chart-title">Distribución de Estados</div><canvas id="c1"></canvas></div>'+
 '<div class="chart-card"><div class="chart-title">Top 15 Files por Monto</div><canvas id="c2"></canvas></div></div>';
-const pe=document.getElementById('c1');const lbs=Object.keys(DATA.byEstado);const vls=Object.values(DATA.byEstado);const pal={'COBRO COMPLETO':'#2EA043','COBRO PARCIAL':'#E3B341','PENDIENTE COBRO':'#F85149','EXCEDENTE':'#8957E5','REVISAR':'#FF9500'};
-chartObjs.c1=new Chart(pe,{type:'doughnut',data:{labels:lbs,datasets:[{data:vls,backgroundColor:lbs.map(l=>pal[l]||'#7D8590')}]},options:{plugins:{legend:{labels:{color:'#E6EDF3',font:{size:11}}}},cutout:'62%'}});
+const pe=document.getElementById('c1');const lbs=Object.keys(DATA.byEstado);const vls=Object.values(DATA.byEstado);const pal={'COBRO COMPLETO':'#2E7D5B','COBRO PARCIAL':'#B7791F','PENDIENTE COBRO':'#C0392B','EXCEDENTE':'#6B5B95','REVISAR':'#D97706'};
+chartObjs.c1=new Chart(pe,{type:'doughnut',data:{labels:lbs,datasets:[{data:vls,backgroundColor:lbs.map(l=>pal[l]||'#5A6B7E')}]},options:{plugins:{legend:{labels:{color:'#1E2A3A',font:{size:11}}}},cutout:'62%'}});
 const ce=document.getElementById('c2');const top=DATA.cruce.slice().sort((a,b)=>b.Total-a.Total).slice(0,15);
-chartObjs.c2=new Chart(ce,{type:'bar',data:{labels:top.map(r=>r.File_Num),datasets:[{label:'Maestro',data:top.map(r=>r.Total),backgroundColor:'#1F6FEB'},{label:'Ingresos',data:top.map(r=>r.Ing_Total),backgroundColor:'#2EA043'},{label:'Egresos',data:top.map(r=>r.Eg_Total),backgroundColor:'#F85149'}]},options:{plugins:{legend:{labels:{color:'#E6EDF3'}}},scales:{x:{ticks:{color:'#7D8590',font:{size:9}},grid:{color:'#30363D'}},y:{ticks:{color:'#7D8590'},grid:{color:'#30363D'}}}}});}
-function renderCruce(el){let rows=DATA.cruce.filter(r=>(filter==='ALL'||r.Estado===filter)&&(!search||r.File_Num.includes(search)||(r.Pasajero||'').toLowerCase().includes(search.toLowerCase())||(r.Agencia||'').toLowerCase().includes(search.toLowerCase())));rows=applySort(rows);
+chartObjs.c2=new Chart(ce,{type:'bar',data:{labels:top.map(r=>r.File_Num),datasets:[{label:'Maestro',data:top.map(r=>r.Total),backgroundColor:'#1F4E79'},{label:'Ingresos',data:top.map(r=>r.Ing_Total),backgroundColor:'#2E7D5B'},{label:'Egresos',data:top.map(r=>r.Eg_Total),backgroundColor:'#C0392B'}]},options:{plugins:{legend:{labels:{color:'#1E2A3A'}}},scales:{x:{ticks:{color:'#5A6B7E',font:{size:9}},grid:{color:'#D9E0E9'}},y:{ticks:{color:'#5A6B7E'},grid:{color:'#D9E0E9'}}}}});}
+function renderCruce(el){let rows=DATA.cruce.filter(r=>(mesFilter==='ALL'||r.MesGeneracion===mesFilter)&&(filter==='ALL'||r.Estado===filter)&&(!search||r.File_Num.includes(search)||(r.Pasajero||'').toLowerCase().includes(search.toLowerCase())||(r.Agencia||'').toLowerCase().includes(search.toLowerCase())));rows=applySort(rows);
 const opts=['ALL','COBRO COMPLETO','COBRO PARCIAL','PENDIENTE COBRO','EXCEDENTE','REVISAR'].map(o=>'<option value="'+o+'"'+(filter===o?' selected':'')+'>'+(o==='ALL'?'Todos los estados':o)+'</option>').join('');
-el.innerHTML='<div class="controls"><input class="search-input" placeholder="🔍 Buscar..." value="'+search+'" oninput="search=this.value;render();this.focus();this.setSelectionRange(this.value.length,this.value.length);"><select class="filter-select" onchange="filter=this.value;render();">'+opts+'</select><span class="count-badge">'+rows.length+' files</span></div>'+
-'<div class="tbl-wrap"><table><thead><tr><th onclick="sortBy(\\'File_Num\\')">FILE</th><th>PASAJERO</th><th>AGENCIA</th><th onclick="sortBy(\\'Total\\')">MAESTRO</th><th onclick="sortBy(\\'Ing_Total\\')">INGRESOS</th><th onclick="sortBy(\\'Eg_Total\\')">EGRESOS</th><th onclick="sortBy(\\'Pendiente\\')">PENDIENTE</th><th onclick="sortBy(\\'Ganancia\\')">GANANCIA</th><th onclick="sortBy(\\'Margen\\')">MARGEN%</th><th>CRITICIDAD</th><th>ESTADO</th></tr></thead><tbody>'+rows.map(buildRow).join('')+'</tbody></table></div>';}
+const mOpts=['ALL',...mesesDisp()].map(m=>'<option value="'+m+'"'+(mesFilter===m?' selected':'')+'>'+(m==='ALL'?'Mes generado: todos':'Mes: '+mLbl(m))+'</option>').join('');
+el.innerHTML='<div class="controls"><input class="search-input" placeholder="🔍 Buscar..." value="'+search+'" oninput="search=this.value;render();this.focus();this.setSelectionRange(this.value.length,this.value.length);"><select class="filter-select" onchange="filter=this.value;render();">'+opts+'</select><select class="filter-select" onchange="mesFilter=this.value;render();">'+mOpts+'</select><span class="count-badge">'+rows.length+' files</span></div>'+
+'<div class="tbl-wrap"><table><thead><tr><th onclick="sortBy(\\'File_Num\\')">FILE</th><th>PASAJERO</th><th>AGENCIA</th><th>MES GEN.</th><th>MES NOS PAGARON</th><th>MES PAGAMOS</th><th onclick="sortBy(\\'Total\\')">MAESTRO</th><th onclick="sortBy(\\'Ing_Total\\')">INGRESOS</th><th onclick="sortBy(\\'Eg_Total\\')">EGRESOS</th><th onclick="sortBy(\\'Pendiente\\')">PENDIENTE</th><th onclick="sortBy(\\'Ganancia\\')">GANANCIA</th><th onclick="sortBy(\\'Margen\\')">MARGEN%</th><th>CRITICIDAD</th><th>ESTADO</th></tr></thead><tbody>'+rows.map(buildRow).join('')+'</tbody></table></div>';}
 function renderCriticos(el){const pend=DATA.cruce.filter(r=>r.Pendiente>0);const bk={'0-30':[],'31-60':[],'61-90':[],'91-180':[],'180+':[],'SIN_FECHA':[]};for(const r of pend)(bk[r.AgingBucket]||bk.SIN_FECHA).push(r);const sum=(b)=>bk[b].reduce((s,r)=>s+r.Pendiente,0);
 const sorted=pend.slice().sort((a,b)=>b.Pendiente-a.Pendiente);
 el.innerHTML='<div class="aging-grid">'+
@@ -1566,14 +1839,27 @@ el.innerHTML='<div class="aging-grid">'+
 '</div><div class="chart-card"><div class="chart-title">Distribución de Aging — Monto Pendiente (USD)</div><canvas id="cag" style="max-height:260px"></canvas></div>'+
 '<div class="tbl-wrap"><table><thead><tr><th>FILE</th><th>PASAJERO</th><th>AGENCIA</th><th>MAESTRO</th><th>COBRADO</th><th>PENDIENTE</th><th>EDAD</th><th>AGING</th><th>CRITICIDAD</th></tr></thead><tbody>'+sorted.map(r=>'<tr onclick="showDetail(\\''+r.File_Num+'\\')"><td class="mono">'+r.File_Num+'</td><td>'+(r.Pasajero||'—')+'</td><td>'+(r.Agencia||'—')+'</td><td class="num">'+fmtN(r.Total)+'</td><td class="num">'+fmtN(r.Ing_Total)+'</td><td class="num neg"><strong>'+fmtN(r.Pendiente)+'</strong></td><td class="mono">'+(r.DiasDesdeInicio!=null?r.DiasDesdeInicio+'d':'—')+'</td><td>'+r.AgingBucket+'</td><td><span class="badge '+badgeCls(r.Criticidad)+'">'+r.Criticidad+'</span></td></tr>').join('')+'</tbody></table></div>';
 const ce=document.getElementById('cag');const bks=['0-30','31-60','61-90','91-180','180+'];const amts=bks.map(b=>sum(b));
-chartObjs.cag=new Chart(ce,{type:'bar',data:{labels:bks,datasets:[{data:amts,backgroundColor:['#2EA043','#E3B341','#FF9500','#F85149','#c9302c']}]},options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#7D8590'},grid:{color:'#30363D'}},y:{ticks:{color:'#7D8590'},grid:{color:'#30363D'}}}}});}
+chartObjs.cag=new Chart(ce,{type:'bar',data:{labels:bks,datasets:[{data:amts,backgroundColor:['#2E7D5B','#B7791F','#D97706','#C0392B','#7F1D1D']}]},options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#5A6B7E'},grid:{color:'#D9E0E9'}},y:{ticks:{color:'#5A6B7E'},grid:{color:'#D9E0E9'}}}}});}
 function renderRent(el){const c=DATA.cruce.filter(r=>r.Ing_Total>0||r.Eg_Total>0);const sorted=c.slice().sort((a,b)=>a.Ganancia-b.Ganancia);const perd=c.filter(r=>r.AlertaRentabilidad==='PÉRDIDA').length;const totalG=sorted.reduce((s,r)=>s+r.Ganancia,0);const totalI=sorted.reduce((s,r)=>s+r.Ing_Total,0);const avg=totalI>0?totalG/totalI*100:0;
 el.innerHTML='<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)"><div class="kpi-card '+(totalG>=0?'green':'red')+'"><div class="kpi-label">Ganancia Total</div><div class="kpi-value" style="font-size:18px">'+fmt(totalG)+'</div></div><div class="kpi-card blue"><div class="kpi-label">Margen Promedio</div><div class="kpi-value">'+fmtPct(avg)+'</div></div><div class="kpi-card red"><div class="kpi-label">En Pérdida</div><div class="kpi-value">'+perd+'</div></div><div class="kpi-card yellow"><div class="kpi-label">Total Files</div><div class="kpi-value">'+c.length+'</div></div></div>'+
 '<div class="charts-row"><div class="chart-card"><div class="chart-title">Top 15 Más Rentables</div><canvas id="rt"></canvas></div><div class="chart-card"><div class="chart-title">Bottom 15 (Pérdidas / Margen Bajo)</div><canvas id="rb"></canvas></div></div>'+
 '<div class="tbl-wrap"><table><thead><tr><th>FILE</th><th>PASAJERO</th><th>AGENCIA</th><th>MAESTRO</th><th>INGRESOS</th><th>EGRESOS</th><th>GANANCIA</th><th>MARGEN%</th><th>ALERTA</th></tr></thead><tbody>'+sorted.map(r=>'<tr onclick="showDetail(\\''+r.File_Num+'\\')"><td class="mono">'+r.File_Num+'</td><td>'+(r.Pasajero||'—')+'</td><td>'+(r.Agencia||'—')+'</td><td class="num">'+fmtN(r.Total)+'</td><td class="num">'+fmtN(r.Ing_Total)+'</td><td class="num">'+fmtN(r.Eg_Total)+'</td><td class="num"><strong style="color:'+(r.Ganancia<0?'var(--danger)':'var(--completo)')+'">'+fmtN(r.Ganancia)+'</strong></td><td class="num">'+fmtPct(r.Margen)+'</td><td><span class="badge '+badgeCls(r.AlertaRentabilidad)+'">'+r.AlertaRentabilidad+'</span></td></tr>').join('')+'</tbody></table></div>';
 const top=c.slice().sort((a,b)=>b.Ganancia-a.Ganancia).slice(0,15);const bot=c.slice().sort((a,b)=>a.Ganancia-b.Ganancia).slice(0,15);
-chartObjs.rt=new Chart(document.getElementById('rt'),{type:'bar',data:{labels:top.map(r=>r.File_Num),datasets:[{data:top.map(r=>r.Ganancia),backgroundColor:'#2EA043'}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#7D8590'},grid:{color:'#30363D'}},y:{ticks:{color:'#7D8590',font:{size:9}},grid:{color:'#30363D'}}}}});
-chartObjs.rb=new Chart(document.getElementById('rb'),{type:'bar',data:{labels:bot.map(r=>r.File_Num),datasets:[{data:bot.map(r=>r.Ganancia),backgroundColor:bot.map(r=>r.Ganancia<0?'#F85149':'#E3B341')}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#7D8590'},grid:{color:'#30363D'}},y:{ticks:{color:'#7D8590',font:{size:9}},grid:{color:'#30363D'}}}}});}
+chartObjs.rt=new Chart(document.getElementById('rt'),{type:'bar',data:{labels:top.map(r=>r.File_Num),datasets:[{data:top.map(r=>r.Ganancia),backgroundColor:'#2E7D5B'}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#5A6B7E'},grid:{color:'#D9E0E9'}},y:{ticks:{color:'#5A6B7E',font:{size:9}},grid:{color:'#D9E0E9'}}}}});
+chartObjs.rb=new Chart(document.getElementById('rb'),{type:'bar',data:{labels:bot.map(r=>r.File_Num),datasets:[{data:bot.map(r=>r.Ganancia),backgroundColor:bot.map(r=>r.Ganancia<0?'#C0392B':'#B7791F')}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#5A6B7E'},grid:{color:'#D9E0E9'}},y:{ticks:{color:'#5A6B7E',font:{size:9}},grid:{color:'#D9E0E9'}}}}});}
+function renderMensual(el){const data=DATA.mensual||[];if(!data.length){el.innerHTML='<p style="color:var(--muted);padding:30px;text-align:center">Sin datos mensuales (no se detectaron fechas en los archivos).</p>';return;}
+const T=(k)=>data.reduce((s,d)=>s+(d[1][k]||0),0);const totF=T('ingMonto')-T('egMonto');
+const rws=data.map(d=>{const mes=d[0],st=d[1];const fl=st.ingMonto-st.egMonto;return '<tr><td class="mono"><strong>'+mLbl(mes)+'</strong></td><td class="num">'+st.filesGen+'</td><td class="num">'+fmtN(st.maestroGen)+'</td><td class="num" style="color:var(--completo)">'+fmtN(st.ingMonto)+'</td><td class="num" style="color:var(--danger)">'+fmtN(st.egMonto)+'</td><td class="num"><strong style="color:'+(fl>=0?'var(--completo)':'var(--danger)')+'">'+fmtN(fl)+'</strong></td><td class="num">'+(st.filesPerdida>0?'<span class="badge perdida">'+st.filesPerdida+'</span>':'0')+'</td><td class="num">'+(st.filesSinIngreso>0?'<span class="badge pendiente">'+st.filesSinIngreso+'</span>':'0')+'</td><td class="num">'+st.filesPendientes+'</td><td class="num">'+st.filesCompletos+'</td><td class="num neg">'+fmtN(st.pendienteGen)+'</td></tr>';}).join('');
+el.innerHTML='<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">'+
+'<div class="kpi-card green"><div class="kpi-label">Total nos pagaron</div><div class="kpi-value" style="font-size:16px">'+fmtN(T('ingMonto'))+'</div></div>'+
+'<div class="kpi-card red"><div class="kpi-label">Total pagamos</div><div class="kpi-value" style="font-size:16px">'+fmtN(T('egMonto'))+'</div></div>'+
+'<div class="kpi-card '+(totF>=0?'green':'red')+'"><div class="kpi-label">Flujo Neto</div><div class="kpi-value" style="font-size:16px">'+fmtN(totF)+'</div></div>'+
+'<div class="kpi-card orange"><div class="kpi-label">Files en Pérdida</div><div class="kpi-value">'+T('filesPerdida')+'</div><div class="kpi-sub">'+T('filesSinIngreso')+' sin ingreso reconocido</div></div></div>'+
+'<div class="charts-row"><div class="chart-card"><div class="chart-title">Nos pagaron vs Pagamos por mes</div><canvas id="cm1"></canvas></div><div class="chart-card"><div class="chart-title">Files en Pérdida / Sin Ingreso / Pendientes / Completos por mes</div><canvas id="cm2"></canvas></div></div>'+
+'<div class="tbl-wrap"><table><thead><tr><th>MES</th><th class="num">FILES GEN.</th><th class="num">MAESTRO</th><th class="num">NOS PAGARON</th><th class="num">PAGAMOS</th><th class="num">FLUJO NETO</th><th class="num">EN PÉRDIDA</th><th class="num">SIN INGRESO</th><th class="num">PENDIENTES</th><th class="num">COMPLETOS</th><th class="num">PEND. COBRO $</th></tr></thead><tbody>'+rws+'</tbody></table></div>';
+const lbs=data.map(d=>mLbl(d[0]));
+chartObjs.cm1=new Chart(document.getElementById('cm1'),{type:'bar',data:{labels:lbs,datasets:[{label:'Nos pagaron',data:data.map(d=>d[1].ingMonto),backgroundColor:'#2E7D5B'},{label:'Pagamos',data:data.map(d=>d[1].egMonto),backgroundColor:'#C0392B'},{label:'Flujo neto',type:'line',data:data.map(d=>d[1].ingMonto-d[1].egMonto),borderColor:'#1F4E79',backgroundColor:'#1F4E79',tension:.3}]},options:{plugins:{legend:{labels:{color:'#1E2A3A',font:{size:11}}}},scales:{x:{ticks:{color:'#5A6B7E'},grid:{color:'#D9E0E9'}},y:{ticks:{color:'#5A6B7E'},grid:{color:'#D9E0E9'}}}}});
+chartObjs.cm2=new Chart(document.getElementById('cm2'),{type:'bar',data:{labels:lbs,datasets:[{label:'En Pérdida',data:data.map(d=>d[1].filesPerdida),backgroundColor:'#C0392B'},{label:'Sin Ingreso',data:data.map(d=>d[1].filesSinIngreso),backgroundColor:'#D97706'},{label:'Pendientes',data:data.map(d=>d[1].filesPendientes),backgroundColor:'#B7791F'},{label:'Completos',data:data.map(d=>d[1].filesCompletos),backgroundColor:'#2E7D5B'}]},options:{plugins:{legend:{labels:{color:'#1E2A3A',font:{size:11}}}},scales:{x:{ticks:{color:'#5A6B7E'},grid:{color:'#D9E0E9'}},y:{ticks:{color:'#5A6B7E'},grid:{color:'#D9E0E9'},beginAtZero:true}}}});}
 function showDetail(fn){const r=DATA.cruce.find(x=>x.File_Num===fn);if(!r)return;const m=document.getElementById('modal');
 const ingHtml=r.Ingresos.length?r.Ingresos.map(i=>'<div class="tl-row"><span>'+fmtDate(i.Fecha)+'</span><span style="color:var(--accent2)">#'+(i.Recibo||'—')+'</span><span class="tl-amt ing">+'+fmtN(i.Monto)+'</span><span title="'+(i.Concepto||'')+'">'+(i.Concepto||'—')+'</span><span style="color:var(--muted)">'+(i.Referencia||'—')+'</span></div>').join(''):'<div style="text-align:center;color:var(--muted);padding:14px">Sin ingresos registrados</div>';
 const egHtml=r.Egresos.length?r.Egresos.map(e=>'<div class="tl-row"><span>'+fmtDate(e.Fecha)+'</span><span style="color:var(--danger)">#'+e.Recibo+'</span><span class="tl-amt eg">−'+fmtN(e.Monto)+'</span><span title="'+(e.Concepto||'')+'">'+(e.Concepto||'—')+'</span><span style="color:var(--muted)">'+(e.Referencia||'—')+'</span></div>').join(''):'<div style="text-align:center;color:var(--muted);padding:14px">Sin egresos registrados</div>';
@@ -1627,62 +1913,8 @@ const analyze = async () => {
     const egSeen = new Set();
     const egUniq = egRows.filter(r => { if (egSeen.has(r.Recibo)) return false; egSeen.add(r.Recibo); return true; });
     const { cruce, egSinFile } = crossRef(maestroArr, ingRows, egUniq);
-    const T = (k) => cruce.reduce((s, r) => s + (r[k] || 0), 0);
-    const conIng = cruce.filter(r => r.Ing_Total > 0);
-    const margenPromedio = conIng.length ? conIng.reduce((s, r) => s + r.Margen, 0) / conIng.length : 0;
-
-    // Currency aggregation
-    const allIngTx = cruce.flatMap(r => r.Ingresos);
-    const allEgTx  = cruce.flatMap(r => r.Egresos);
-    const byMoneda = {
-      USD: {
-        ing: allIngTx.filter(r => r.Moneda === 'USD').reduce((s, r) => s + r.Monto, 0),
-        eg:  allEgTx.filter(r => r.Moneda === 'USD').reduce((s, r) => s + r.Monto, 0),
-        ingTx: allIngTx.filter(r => r.Moneda === 'USD').length,
-        egTx:  allEgTx.filter(r => r.Moneda === 'USD').length,
-      },
-      PEN: {
-        ing: allIngTx.filter(r => r.Moneda === 'PEN').reduce((s, r) => s + r.Monto, 0),
-        eg:  allEgTx.filter(r => r.Moneda === 'PEN').reduce((s, r) => s + r.Monto, 0),
-        ingTx: allIngTx.filter(r => r.Moneda === 'PEN').length,
-        egTx:  allEgTx.filter(r => r.Moneda === 'PEN').length,
-      },
-      DESCONOCIDA: {
-        ing: allIngTx.filter(r => !r.Moneda).reduce((s, r) => s + r.Monto, 0),
-        eg:  allEgTx.filter(r => !r.Moneda).reduce((s, r) => s + r.Monto, 0),
-        ingTx: allIngTx.filter(r => !r.Moneda).length,
-        egTx:  allEgTx.filter(r => !r.Moneda).length,
-      }
-    };
-    // Bank aggregation (transactions with a detected bank)
-    const byBanco = {};
-    for (const tx of allIngTx) {
-      const b = tx.Banco || 'SIN BANCO';
-      if (!byBanco[b]) byBanco[b] = { ingTx: 0, egTx: 0, ingMonto: 0, egMonto: 0 };
-      byBanco[b].ingTx++;
-      byBanco[b].ingMonto += tx.Monto;
-    }
-    for (const tx of allEgTx) {
-      const b = tx.Banco || 'SIN BANCO';
-      if (!byBanco[b]) byBanco[b] = { ingTx: 0, egTx: 0, ingMonto: 0, egMonto: 0 };
-      byBanco[b].egTx++;
-      byBanco[b].egMonto += tx.Monto;
-    }
-    state.result = {
-      cruce, egSinFile,
-      totals: { files: cruce.length, maestro: T('Total'), ingresos: T('Ing_Total'), egresos: T('Eg_Total'), pendiente: T('Pendiente'), saldoCobrar: T('SaldoCobrar') },
-      profitTotals: {
-        ganancia: T('Ganancia'),
-        margenPromedio,
-        filesPerdida: cruce.filter(r => r.AlertaRentabilidad === 'PÉRDIDA').length,
-        filesCriticos: cruce.filter(r => r.Criticidad === 'CRÍTICA').length,
-        filesAntiguos: cruce.filter(r => ['91-180', '180+'].includes(r.AgingBucket)).length
-      },
-      byEstado: cruce.reduce((acc, r) => { acc[r.Estado] = (acc[r.Estado] || 0) + 1; return acc; }, {}),
-      byEstIng: cruce.reduce((acc, r) => { acc[r.Est_Ing] = (acc[r.Est_Ing] || 0) + 1; return acc; }, {}),
-      byMoneda,
-      byBanco
-    };
+    state.mesFiltro = 'ALL'; state.mesCriterio = 'gen';
+    state.result = { cruce, egSinFile, ...computeAggregates(cruce) };
     setLoading(false);
     enableTabs();
     switchTab('dashboard');
