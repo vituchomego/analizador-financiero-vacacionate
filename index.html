@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Vacacionate SAC — Analizador Financiero v4.1 Executive (Filtro Mensual + Comparativo)</title>
+<title>Vacacionate SAC — Dashboard Financiero v4.6 Bancos y Monedas</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
@@ -185,22 +185,21 @@
   <div class="logo">V</div>
   <div>
     <div class="app-title">Vacacionate SAC — Analizador Financiero</div>
-    <div class="app-subtitle">v4.1 Executive Edition · Filtro por Mes · Comparativo Mensual · Moneda · Bancos · Aging</div>
+    <div class="app-subtitle">v4.6 Executive Online · Bancos por Mes · Monedas USD/PEN</div>
   </div>
-  <div class="app-sub">Dashboard Dinámico Exportable</div>
+  <div class="app-sub">Dashboard Ejecutivo Online</div>
 </div>
 <div class="tabs" id="tabs">
-  <div class="tab active" data-tab="upload">📁 Cargar Archivos</div>
-  <div class="tab disabled" data-tab="dashboard">📊 Dashboard</div>
-  <div class="tab disabled" data-tab="mensual">📅 Comparativo Mensual</div>
-  <div class="tab disabled" data-tab="cruce">📋 Cruce Completo</div>
-  <div class="tab disabled" data-tab="trazabilidad">🔍 Trazabilidad</div>
-  <div class="tab disabled" data-tab="criticos">🚨 Críticos / Aging</div>
-  <div class="tab disabled" data-tab="rentabilidad">💰 Rentabilidad</div>
-  <div class="tab disabled" data-tab="completos">✅ Completos</div>
-  <div class="tab disabled" data-tab="pendientes">⏳ Pendientes</div>
-  <div class="tab disabled" data-tab="bancos">💳 Bancos / Monedas</div>
-  <div class="tab disabled" data-tab="egresos">💸 Egresos</div>
+  <div class="tab active" data-tab="dashboard">📊 Dashboard</div>
+  <div class="tab" data-tab="mensual">📅 Comparativo Mensual</div>
+  <div class="tab" data-tab="cruce">📋 Cruce Completo</div>
+  <div class="tab" data-tab="trazabilidad">🔍 Trazabilidad</div>
+  <div class="tab" data-tab="criticos">🚨 Críticos / Aging</div>
+  <div class="tab" data-tab="rentabilidad">💰 Rentabilidad</div>
+  <div class="tab" data-tab="completos">✅ Completos</div>
+  <div class="tab" data-tab="pendientes">⏳ Pendientes</div>
+  <div class="tab" data-tab="bancos">💳 Bancos / Monedas</div>
+  <div class="tab" data-tab="egresos">💸 Egresos</div>
 </div>
 <div class="main" id="main-content"></div>
 
@@ -211,23 +210,71 @@
 let state = {
   files: { maestro: null, ingresos: [], egresos: [] },
   result: null,
-  tab: 'upload',
+  tab: 'dashboard',
   filter: 'ALL',
   search: '',
   selectedFile: null,
   sortKey: null,
   sortDir: 'desc',
   mesFiltro: 'ALL',      // 'ALL' o 'YYYY-MM'
-  mesCriterio: 'gen'     // 'gen' = mes de generación · 'cobro' = mes en que nos pagaron · 'pago' = mes en que pagamos
+  mesCriterio: 'gen',    // 'gen' = mes de generación · 'cobro' = mes en que nos pagaron · 'pago' = mes en que pagamos
+  drive: { status: 'idle', message: 'Preparando dashboard...', lastSync: null, meta: null }
 };
 let charts = {};
+
+/* ============================================================
+   CONFIGURACIÓN INTERNA DEL SERVICIO DE DATOS
+   ============================================================ */
+const DRIVE_CONFIG = {
+  // Pega aquí, una sola vez, la URL /exec de tu Web App de Apps Script.
+  // Esta URL queda oculta para el usuario final dentro del HTML publicado en GitHub.
+  appsScriptEndpoint: 'https://script.google.com/macros/s/AKfycbxjNcNnD_MngOHBy_n_Uuu58C_dlNr_uHl-9bSsAE1zTpjAKvVBYnltlWNsU_zVplcx/exec',
+  folders: {
+    maestro: '1DW5WG3elU33LwfnZJb9td-JuIu34uiN2',
+    ingresos: '1jD8hvq8Y4N_rQdA-1nEirJ-qHCRGzA9j',
+    egresos: '1GVX0SHltElvtWOqwCztX2pz569drXjKL'
+  }
+};
+const getAppsScriptEndpoint = () => DRIVE_CONFIG.appsScriptEndpoint;
+const isDriveEndpointConfigured = () => {
+  const ep = getAppsScriptEndpoint();
+  return !!(ep && !ep.includes('PEGA_AQUI') && /^https:\/\//i.test(ep));
+};
+
 
 /* ============================================================
    HELPERS
    ============================================================ */
 const extractFileNum = (val) => { const m = String(val ?? '').match(/(\d{8})/); return m ? m[1] : null; };
-const toNum = (val) => { if (val === null || val === undefined || val === '') return 0; const n = parseFloat(String(val).replace(/[,$\s]/g, '')); return isNaN(n) ? 0 : n; };
+const toNum = (val) => {
+  if (val === null || val === undefined || val === '') return 0;
+  if (typeof val === 'number') return isFinite(val) ? val : 0;
+  let s = String(val).trim();
+  if (!s) return 0;
+  // Limpia moneda y texto, conservando signos y separadores decimales/miles.
+  s = s.replace(/[^0-9,.-]/g, '');
+  if (!s || s === '-' || s === ',' || s === '.') return 0;
+  const lastComma = s.lastIndexOf(',');
+  const lastDot = s.lastIndexOf('.');
+  if (lastComma > -1 && lastDot > -1) {
+    // Si el último separador es coma: 1.234,56 -> 1234.56. Si es punto: 1,234.56 -> 1234.56
+    if (lastComma > lastDot) s = s.replace(/\./g, '').replace(',', '.');
+    else s = s.replace(/,/g, '');
+  } else if (lastComma > -1) {
+    // 1234,56 -> 1234.56; 1,234 -> 1234
+    const decimals = s.length - lastComma - 1;
+    s = decimals > 0 && decimals <= 2 ? s.replace(',', '.') : s.replace(/,/g, '');
+  } else if (lastDot > -1) {
+    // 1.234 -> 1234 cuando parece miles; 1234.56 se conserva
+    const decimals = s.length - lastDot - 1;
+    if (decimals === 3 && /^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  }
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+};
 const fmt = (n) => (n || 0).toLocaleString('es-PE', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+const fmtUSD = (n) => (n || 0).toLocaleString('es-PE', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+const fmtPEN = (n) => (n || 0).toLocaleString('es-PE', { style: 'currency', currency: 'PEN', minimumFractionDigits: 2 });
 const fmtN = (n) => (n || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtPct = (n) => isFinite(n) ? `${n.toFixed(1)}%` : '—';
 
@@ -330,6 +377,61 @@ const readSheetData = (file) => new Promise((res, rej) => {
   reader.onerror = rej;
   reader.readAsArrayBuffer(file);
 });
+
+/* ============================================================
+   DRIVE FILE LOADER
+   ============================================================ */
+const base64ToFile = (item) => {
+  const binary = atob(item.base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new File([bytes], item.name, {
+    type: item.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    lastModified: item.modifiedTime ? new Date(item.modifiedTime).getTime() : Date.now()
+  });
+};
+
+const loadDriveJsonp = (endpoint) => new Promise((resolve, reject) => {
+  const cbName = 'vacacionateDriveCallback_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+  const sep = endpoint.includes('?') ? '&' : '?';
+  const script = document.createElement('script');
+  const timer = setTimeout(() => {
+    cleanup();
+    reject(new Error('Tiempo agotado consultando el servicio de datos. Revisa la publicación del servicio y los permisos.'));
+  }, 120000);
+
+  function cleanup() {
+    clearTimeout(timer);
+    try { delete window[cbName]; } catch (e) { window[cbName] = undefined; }
+    if (script.parentNode) script.parentNode.removeChild(script);
+  }
+
+  window[cbName] = (data) => { cleanup(); resolve(data); };
+  script.onerror = () => {
+    cleanup();
+    reject(new Error('No se pudo consultar el servicio de datos. Revisa la publicación del servicio y la conexión a internet.'));
+  };
+  script.src = `${endpoint}${sep}mode=all&callback=${encodeURIComponent(cbName)}&t=${Date.now()}`;
+  document.body.appendChild(script);
+});
+
+const fetchDriveFiles = async () => {
+  if (!isDriveEndpointConfigured()) {
+    throw new Error('No se pudo conectar con el servicio de datos.');
+  }
+  const endpoint = getAppsScriptEndpoint();
+  const data = await loadDriveJsonp(endpoint);
+  if (!data || !data.ok) throw new Error((data && data.error) || 'Google Drive devolvió un error desconocido.');
+  if (!data.maestro || !Array.isArray(data.ingresos) || !Array.isArray(data.egresos)) {
+    throw new Error('La respuesta del servicio de datos no tiene la estructura esperada para el análisis.');
+  }
+  return {
+    maestro: base64ToFile(data.maestro),
+    ingresos: data.ingresos.map(base64ToFile),
+    egresos: data.egresos.map(base64ToFile),
+    meta: data.meta || { generatedAt: data.generatedAt, maestro: data.maestro, ingresosCount: data.ingresos.length, egresosCount: data.egresos.length }
+  };
+};
 
 const findHRow = (data, kw) => {
   for (let i = 0; i < Math.min(15, data.length); i++) {
@@ -638,14 +740,33 @@ function computeAggregates(cruce) {
   const margenPromedio = conIng.length ? conIng.reduce((s, r) => s + r.Margen, 0) / conIng.length : 0;
   const allIngTx = cruce.flatMap(r => r.Ingresos);
   const allEgTx  = cruce.flatMap(r => r.Egresos);
+  const sumTx = (arr, moneda) => arr.filter(r => moneda ? r.Moneda === moneda : !r.Moneda).reduce((s, r) => s + r.Monto, 0);
+  const countTx = (arr, moneda) => arr.filter(r => moneda ? r.Moneda === moneda : !r.Moneda).length;
   const byMoneda = {
-    USD: { ing: allIngTx.filter(r => r.Moneda === 'USD').reduce((s, r) => s + r.Monto, 0), eg: allEgTx.filter(r => r.Moneda === 'USD').reduce((s, r) => s + r.Monto, 0), ingTx: allIngTx.filter(r => r.Moneda === 'USD').length, egTx: allEgTx.filter(r => r.Moneda === 'USD').length },
-    PEN: { ing: allIngTx.filter(r => r.Moneda === 'PEN').reduce((s, r) => s + r.Monto, 0), eg: allEgTx.filter(r => r.Moneda === 'PEN').reduce((s, r) => s + r.Monto, 0), ingTx: allIngTx.filter(r => r.Moneda === 'PEN').length, egTx: allEgTx.filter(r => r.Moneda === 'PEN').length },
-    DESCONOCIDA: { ing: allIngTx.filter(r => !r.Moneda).reduce((s, r) => s + r.Monto, 0), eg: allEgTx.filter(r => !r.Moneda).reduce((s, r) => s + r.Monto, 0), ingTx: allIngTx.filter(r => !r.Moneda).length, egTx: allEgTx.filter(r => !r.Moneda).length }
+    USD: { ing: sumTx(allIngTx, 'USD'), eg: sumTx(allEgTx, 'USD'), ingTx: countTx(allIngTx, 'USD'), egTx: countTx(allEgTx, 'USD') },
+    PEN: { ing: sumTx(allIngTx, 'PEN'), eg: sumTx(allEgTx, 'PEN'), ingTx: countTx(allIngTx, 'PEN'), egTx: countTx(allEgTx, 'PEN') },
+    DESCONOCIDA: { ing: sumTx(allIngTx, null), eg: sumTx(allEgTx, null), ingTx: countTx(allIngTx, null), egTx: countTx(allEgTx, null) }
   };
   const byBanco = {};
-  for (const tx of allIngTx) { const b = tx.Banco || 'SIN BANCO'; if (!byBanco[b]) byBanco[b] = { ingTx: 0, egTx: 0, ingMonto: 0, egMonto: 0 }; byBanco[b].ingTx++; byBanco[b].ingMonto += tx.Monto; }
-  for (const tx of allEgTx)  { const b = tx.Banco || 'SIN BANCO'; if (!byBanco[b]) byBanco[b] = { ingTx: 0, egTx: 0, ingMonto: 0, egMonto: 0 }; byBanco[b].egTx++; byBanco[b].egMonto += tx.Monto; }
+  const makeBanco = () => ({ ingTx: 0, egTx: 0, ingMonto: 0, egMonto: 0, ingUSD: 0, ingPEN: 0, ingSinMoneda: 0, egUSD: 0, egPEN: 0, egSinMoneda: 0 });
+  for (const tx of allIngTx) {
+    const b = tx.Banco || 'SIN BANCO';
+    if (!byBanco[b]) byBanco[b] = makeBanco();
+    byBanco[b].ingTx++;
+    byBanco[b].ingMonto += tx.Monto;
+    if (tx.Moneda === 'USD') byBanco[b].ingUSD += tx.Monto;
+    else if (tx.Moneda === 'PEN') byBanco[b].ingPEN += tx.Monto;
+    else byBanco[b].ingSinMoneda += tx.Monto;
+  }
+  for (const tx of allEgTx)  {
+    const b = tx.Banco || 'SIN BANCO';
+    if (!byBanco[b]) byBanco[b] = makeBanco();
+    byBanco[b].egTx++;
+    byBanco[b].egMonto += tx.Monto;
+    if (tx.Moneda === 'USD') byBanco[b].egUSD += tx.Monto;
+    else if (tx.Moneda === 'PEN') byBanco[b].egPEN += tx.Monto;
+    else byBanco[b].egSinMoneda += tx.Monto;
+  }
   return {
     totals: { files: cruce.length, maestro: T('Total'), ingresos: T('Ing_Total'), egresos: T('Eg_Total'), pendiente: T('Pendiente'), saldoCobrar: T('SaldoCobrar') },
     profitTotals: {
@@ -713,10 +834,28 @@ function updateMesCriterio(v) { state.mesCriterio = v; state.selectedFile = null
 function buildMensual() {
   const cruce = state.result.cruce;
   const map = {};
-  const get = (k) => map[k] || (map[k] = { ingMonto: 0, ingTx: 0, egMonto: 0, egTx: 0, filesGen: 0, maestroGen: 0, pendienteGen: 0, filesPerdida: 0, filesPendientes: 0, filesCompletos: 0, filesSinIngreso: 0 });
+  const get = (k) => map[k] || (map[k] = {
+    ingMonto: 0, ingTx: 0, egMonto: 0, egTx: 0,
+    ingUSD: 0, ingPEN: 0, ingSinMoneda: 0,
+    egUSD: 0, egPEN: 0, egSinMoneda: 0,
+    filesGen: 0, maestroGen: 0, pendienteGen: 0,
+    filesPerdida: 0, filesPendientes: 0, filesCompletos: 0, filesSinIngreso: 0
+  });
   for (const r of cruce) {
-    for (const i of r.Ingresos) { const k = monthKey(i.Fecha); if (!k) continue; const s = get(k); s.ingMonto += i.Monto; s.ingTx++; }
-    for (const e of r.Egresos)  { const k = monthKey(e.Fecha); if (!k) continue; const s = get(k); s.egMonto += e.Monto; s.egTx++; }
+    for (const i of r.Ingresos) {
+      const k = monthKey(i.Fecha); if (!k) continue;
+      const s = get(k); s.ingMonto += i.Monto; s.ingTx++;
+      if (i.Moneda === 'USD') s.ingUSD += i.Monto;
+      else if (i.Moneda === 'PEN') s.ingPEN += i.Monto;
+      else s.ingSinMoneda += i.Monto;
+    }
+    for (const e of r.Egresos)  {
+      const k = monthKey(e.Fecha); if (!k) continue;
+      const s = get(k); s.egMonto += e.Monto; s.egTx++;
+      if (e.Moneda === 'USD') s.egUSD += e.Monto;
+      else if (e.Moneda === 'PEN') s.egPEN += e.Monto;
+      else s.egSinMoneda += e.Monto;
+    }
     if (r.MesGeneracion) {
       const s = get(r.MesGeneracion);
       s.filesGen++; s.maestroGen += r.Total; s.pendienteGen += Math.max(0, r.Pendiente);
@@ -729,13 +868,47 @@ function buildMensual() {
   return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
 }
 
+function buildBancoMensual(cruce = state.result.cruce) {
+  const map = {};
+  const get = (mes, banco) => {
+    const key = `${mes}||${banco}`;
+    return map[key] || (map[key] = {
+      mes, banco,
+      ingTx: 0, egTx: 0,
+      ingMonto: 0, egMonto: 0,
+      ingUSD: 0, ingPEN: 0, ingSinMoneda: 0,
+      egUSD: 0, egPEN: 0, egSinMoneda: 0
+    });
+  };
+  for (const r of cruce) {
+    for (const i of r.Ingresos) {
+      const mes = monthKey(i.Fecha); if (!mes) continue;
+      const b = i.Banco || 'SIN BANCO';
+      const o = get(mes, b);
+      o.ingTx++; o.ingMonto += i.Monto;
+      if (i.Moneda === 'USD') o.ingUSD += i.Monto;
+      else if (i.Moneda === 'PEN') o.ingPEN += i.Monto;
+      else o.ingSinMoneda += i.Monto;
+    }
+    for (const e of r.Egresos) {
+      const mes = monthKey(e.Fecha); if (!mes) continue;
+      const b = e.Banco || 'SIN BANCO';
+      const o = get(mes, b);
+      o.egTx++; o.egMonto += e.Monto;
+      if (e.Moneda === 'USD') o.egUSD += e.Monto;
+      else if (e.Moneda === 'PEN') o.egPEN += e.Monto;
+      else o.egSinMoneda += e.Monto;
+    }
+  }
+  return Object.values(map).sort((a, b) => a.mes.localeCompare(b.mes) || (b.ingTx + b.egTx) - (a.ingTx + a.egTx));
+}
+
 /* ============================================================
    RENDER — Tab routing
    ============================================================ */
 function render() {
   const el = document.getElementById('main-content');
-  if (state.tab === 'upload') { el.innerHTML = renderUpload(); return; }
-  if (!state.result) { el.innerHTML = renderUpload(); return; }
+  if (!state.result) { el.innerHTML = renderDriveStatus(); return; }
   const bar = state.tab === 'mensual' ? '' : monthBar();
   if (state.tab === 'dashboard') { el.innerHTML = bar + renderDashboard(); renderCharts(); }
   else if (state.tab === 'mensual') { el.innerHTML = renderMensual(); renderMensualCharts(); }
@@ -749,41 +922,27 @@ function render() {
   else if (state.tab === 'egresos') el.innerHTML = bar + renderEgresos();
 }
 
-function renderUpload() {
-  const { maestro, ingresos, egresos } = state.files;
-  const fileList = (arr, cat) => arr.map((f, i) => `<div class="file-item"><span>📄</span><span class="file-name">${f.name}</span><span class="file-rm" onclick="removeFile('${cat}',${i})">✕</span></div>`).join('');
-  const masterItem = maestro ? `<div class="file-item"><span>📄</span><span class="file-name">${maestro.name}</span><span class="file-rm" onclick="removeFile('maestro',0)">✕</span></div>` : '';
-  return `<h2 class="section-title">Cargar Archivos para Análisis</h2>
-    <p class="section-sub">Sube el maestro, los archivos de ingresos y los archivos de egresos (acepta .xlsx y .xls)</p>
-    <div class="help-tip"><strong>📌 v4.0 Controller Edition:</strong> Ahora cada file muestra el <strong>mes en que se generó</strong>, el <strong>mes en que nos pagaron</strong> (ingresos) y el <strong>mes en que pagamos</strong> (egresos). Incluye <strong>filtro global por mes 📅</strong> en todas las pestañas y la nueva pestaña <strong>Comparativo Mensual</strong> para ver mes a mes cuántos files terminan en Pérdida o sin ingreso reconocido. Requiere que los archivos incluyan columna "Fecha".</div>
-    <div class="upload-grid">
-      <div class="upload-zone ${maestro ? 'has-files' : ''}">
-        <div class="uz-label">PASO 1</div>
-        <div class="uz-title">📊 Archivo Maestro</div>
-        <div class="uz-desc">Consolidado con el costo de cada file (ej: MAESTRO_FEBRERO_HASTA_ABRIL.xls)</div>
-        <label class="uz-btn"><input type="file" accept=".xlsx,.xls" style="display:none" onchange="onFileInput('maestro',this)">📂 Seleccionar archivo</label>
-        <div class="file-list">${masterItem}</div>
-      </div>
-      <div class="upload-zone ${ingresos.length ? 'has-files' : ''}">
-        <div class="uz-label">PASO 2</div>
-        <div class="uz-title">💰 Archivos de Ingresos</div>
-        <div class="uz-desc">Todos los archivos de ingresos. Puedes seleccionar varios a la vez. Idealmente con columna Fecha.</div>
-        <label class="uz-btn"><input type="file" accept=".xlsx,.xls" multiple style="display:none" onchange="onFileInput('ingresos',this)">📂 Seleccionar archivos</label>
-        <div class="file-list">${fileList(ingresos, 'ingresos')}</div>
-      </div>
-      <div class="upload-zone ${egresos.length ? 'has-files' : ''}">
-        <div class="uz-label">PASO 3</div>
-        <div class="uz-title">💸 Archivos de Egresos</div>
-        <div class="uz-desc">Todos los archivos diarios de egresos. Puedes seleccionar varios a la vez.</div>
-        <label class="uz-btn"><input type="file" accept=".xlsx,.xls" multiple style="display:none" onchange="onFileInput('egresos',this)">📂 Seleccionar archivos</label>
-        <div class="file-list">${fileList(egresos, 'egresos')}</div>
-      </div>
+function renderDriveStatus() {
+  const d = state.drive || {};
+  const configured = isDriveEndpointConfigured();
+  const loading = d.status === 'loading';
+  const error = d.status === 'error';
+  const msg = error ? 'No se pudo cargar la información. Verifica la conexión o permisos del servicio.' : (d.message || 'Preparando dashboard...');
+  const icon = loading ? '<span class="spinner" style="width:30px;height:30px"></span>' : (error ? '⚠️' : '📊');
+  const title = loading ? 'Preparando dashboard' : (error ? 'No se pudo iniciar el dashboard' : 'Preparando dashboard');
+  const detail = configured ? msg : 'Preparando dashboard...';
+  return `<div style="max-width:820px;margin:60px auto;text-align:center">
+    <div class="chart-card" style="padding:38px 28px">
+      <div style="font-size:38px;margin-bottom:12px">${icon}</div>
+      <div style="font-size:20px;font-weight:800;margin-bottom:8px">${title}</div>
+      <p style="color:var(--muted);font-size:14px;margin-bottom:0">${detail}</p>
+      ${error ? `<div class="error-msg" style="margin-top:18px">${msg}</div>` : ''}
     </div>
-    <div class="analyze-wrap">
-      <button class="analyze-btn" id="analyze-btn" onclick="analyze()">🔍 Analizar Archivos</button>
-      <div id="error-msg"></div>
-      <div id="loading-msg"></div>
-    </div>`;
+  </div>`;
+}
+
+function renderDriveSourcePanel() {
+  return '';
 }
 
 /* ============================================================
@@ -799,13 +958,14 @@ function renderDashboard() {
   // Moneda detected?
   const totalMonedaTx = (byMoneda.USD.ingTx + byMoneda.USD.egTx + byMoneda.PEN.ingTx + byMoneda.PEN.egTx);
   const monedaSection = totalMonedaTx > 0 ? `
-  <h3 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">💱 Desglose por Moneda (transacciones detectadas)</h3>
+  <h3 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">💱 Resumen de Ingresos y Egresos por Moneda</h3>
   <div class="moneda-row">
-    <div class="kpi-card blue"><div class="kpi-label">💵 Ingresos USD</div><div class="kpi-value" style="font-size:16px">${fmtN(byMoneda.USD.ing)}</div><div class="kpi-sub">${byMoneda.USD.ingTx} transacciones</div></div>
-    <div class="kpi-card yellow"><div class="kpi-label">S/ Ingresos PEN</div><div class="kpi-value" style="font-size:16px">${fmtN(byMoneda.PEN.ing)}</div><div class="kpi-sub">${byMoneda.PEN.ingTx} transacciones</div></div>
-    <div class="kpi-card red"><div class="kpi-label">💵 Egresos USD</div><div class="kpi-value" style="font-size:16px">${fmtN(byMoneda.USD.eg)}</div><div class="kpi-sub">${byMoneda.USD.egTx} transacciones</div></div>
-    <div class="kpi-card orange"><div class="kpi-label">S/ Egresos PEN</div><div class="kpi-value" style="font-size:16px">${fmtN(byMoneda.PEN.eg)}</div><div class="kpi-sub">${byMoneda.PEN.egTx} transacciones</div></div>
-  </div>` : `<div class="help-tip">ℹ️ <strong>Moneda no detectada automáticamente.</strong> Agrega una columna <strong>"Moneda"</strong> con valores "USD" o "PEN" en tus archivos para ver el desglose por moneda.</div>`;
+    <div class="kpi-card yellow"><div class="kpi-label">S/ Ingresos en Soles</div><div class="kpi-value" style="font-size:17px;color:var(--warn)">${fmtPEN(byMoneda.PEN.ing)}</div><div class="kpi-sub">${byMoneda.PEN.ingTx} transacciones PEN</div></div>
+    <div class="kpi-card orange"><div class="kpi-label">S/ Egresos en Soles</div><div class="kpi-value" style="font-size:17px;color:var(--danger)">${fmtPEN(byMoneda.PEN.eg)}</div><div class="kpi-sub">${byMoneda.PEN.egTx} transacciones PEN</div></div>
+    <div class="kpi-card blue"><div class="kpi-label">💵 Ingresos en Dólares</div><div class="kpi-value" style="font-size:17px;color:var(--accent2)">${fmtUSD(byMoneda.USD.ing)}</div><div class="kpi-sub">${byMoneda.USD.ingTx} transacciones USD</div></div>
+    <div class="kpi-card red"><div class="kpi-label">💵 Egresos en Dólares</div><div class="kpi-value" style="font-size:17px;color:var(--danger)">${fmtUSD(byMoneda.USD.eg)}</div><div class="kpi-sub">${byMoneda.USD.egTx} transacciones USD</div></div>
+  </div>
+  ${byMoneda.DESCONOCIDA.ingTx + byMoneda.DESCONOCIDA.egTx > 0 ? `<div class="help-tip">⚠️ Hay ${byMoneda.DESCONOCIDA.ingTx + byMoneda.DESCONOCIDA.egTx} transacciones sin moneda detectada. Revisa que tus Excel tengan columna <strong>Moneda</strong> con USD o PEN.</div>` : ''}` : `<div class="help-tip">ℹ️ <strong>Moneda no detectada automáticamente.</strong> Agrega una columna <strong>"Moneda"</strong> con valores "USD" o "PEN" en tus archivos para ver ingresos y egresos en soles y dólares.</div>`;
   return `<div class="kpi-grid">
     <div class="kpi-card blue"><div class="kpi-label">Total Files</div><div class="kpi-value">${totals.files.toLocaleString()}</div><div class="kpi-sub">en el maestro</div></div>
     <div class="kpi-card blue"><div class="kpi-label">Total Maestro</div><div class="kpi-value" style="font-size:16px">${fmt(totals.maestro)}</div><div class="kpi-sub">USD</div></div>
@@ -1076,6 +1236,7 @@ function renderCriticos() {
     { key: 'File_Num', label: 'FILE', mono: true },
     { key: 'Pasajero', label: 'PASAJERO' },
     { key: 'Agencia', label: 'AGENCIA' },
+    { key: 'Moneda', label: 'MONEDA', type: 'moneda' },
     { key: 'Total', label: 'MAESTRO', type: 'num' },
     { key: 'Ing_Total', label: 'COBRADO', type: 'num' },
     { key: 'Pendiente', label: 'PENDIENTE', type: 'pend' },
@@ -1167,7 +1328,8 @@ function renderRentabilidad() {
     { key: 'Ganancia', label: 'GANANCIA', type: 'profit' },
     { key: 'Margen', label: 'MARGEN %', type: 'pct' },
     { key: 'MargenMaestro', label: '% s/MAESTRO', type: 'pct' },
-    { key: 'AlertaRentabilidad', label: 'ALERTA', type: 'badge' }
+    { key: 'AlertaRentabilidad', label: 'ALERTA', type: 'badge' },
+    { key: 'Moneda', label: 'MONEDA', type: 'moneda' }
   ];
 
   return `<h2 class="section-title">💰 Análisis de Rentabilidad por File</h2>
@@ -1234,7 +1396,8 @@ function renderCompletos() {
     { key: 'Eg_Total', label: 'EGRESOS', type: 'num' },
     { key: 'Ganancia', label: 'GANANCIA', type: 'profit' },
     { key: 'Margen', label: 'MARGEN %', type: 'pct' },
-    { key: 'Est_Eg', label: 'EST.EGRESO', type: 'badge' }
+    { key: 'Est_Eg', label: 'EST.EGRESO', type: 'badge' },
+    { key: 'Moneda', label: 'MONEDA', type: 'moneda' }
   ];
   return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div><h2 class="section-title" style="margin-bottom:4px">✅ Files con Cobro Completo</h2><p style="color:var(--muted);font-size:13px">${rows.length} files — cobro 100% según maestro</p></div>
@@ -1258,7 +1421,8 @@ function renderPendientes() {
     { key: 'Pendiente', label: 'PENDIENTE', type: 'pend' },
     { key: 'DiasDesdeInicio', label: 'EDAD', type: 'days' },
     { key: 'Criticidad', label: 'CRITICIDAD', type: 'badge' },
-    { key: 'Estado', label: 'ESTADO', type: 'badge' }
+    { key: 'Estado', label: 'ESTADO', type: 'badge' },
+    { key: 'Moneda', label: 'MONEDA', type: 'moneda' }
   ];
   return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div><h2 class="section-title" style="margin-bottom:4px">⏳ Files Pendientes de Cobro</h2><p style="color:var(--muted);font-size:13px">${rows.length} files — ordenados por monto pendiente mayor a menor</p></div>
@@ -1282,7 +1446,8 @@ function renderEgresos() {
     { key: 'Ing_Total', label: 'INGRESOS', type: 'num' },
     { key: 'Eg_Total', label: 'EGRESOS', type: 'num' },
     { key: 'Ganancia', label: 'GANANCIA', type: 'profit' },
-    { key: 'Est_Eg', label: 'EST.EGRESO', type: 'badge' }
+    { key: 'Est_Eg', label: 'EST.EGRESO', type: 'badge' },
+    { key: 'Moneda', label: 'MONEDA', type: 'moneda' }
   ];
   return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div><h2 class="section-title" style="margin-bottom:4px">💸 Egresos por File</h2><p style="color:var(--muted);font-size:13px">${rows.length} files con egresos · ${sinFile.length} egresos sin file asignado</p></div>
@@ -1299,6 +1464,8 @@ function renderEgresos() {
         { key: 'Referencia', label: 'REFERENCIA' },
         { key: 'Concepto', label: 'CONCEPTO' },
         { key: 'Monto', label: 'MONTO', type: 'num' },
+        { key: 'Moneda', label: 'MONEDA', type: 'moneda' },
+        { key: 'Banco', label: 'BANCO' },
         { key: 'Filename', label: 'ARCHIVO' }
       ])}</div>` : ''}`;
 }
@@ -1317,30 +1484,37 @@ function renderBancos() {
   // Sorted banks (exclude SIN BANCO for summary)
   const bancosOrdenados = Object.entries(byBanco)
     .filter(([k]) => k !== 'SIN BANCO')
-    .sort((a, b) => (b[1].ingMonto + b[1].egMonto) - (a[1].ingMonto + a[1].egMonto));
-  const sinBanco = byBanco['SIN BANCO'] || { ingTx: 0, egTx: 0, ingMonto: 0, egMonto: 0 };
+    .sort((a, b) => (b[1].ingTx + b[1].egTx) - (a[1].ingTx + a[1].egTx));
+  const sinBanco = byBanco['SIN BANCO'] || { ingTx: 0, egTx: 0, ingMonto: 0, egMonto: 0, ingUSD: 0, ingPEN: 0, egUSD: 0, egPEN: 0 };
+  const bancoMensual = buildBancoMensual(state.result.cruce);
+  const mesesBanco = [...new Set(bancoMensual.map(r => r.mes))].sort();
+  const topPorMes = mesesBanco.map(mes => {
+    const rows = bancoMensual.filter(r => r.mes === mes && r.banco !== 'SIN BANCO')
+      .sort((a, b) => ((b.ingTx + b.egTx) - (a.ingTx + a.egTx)) || ((b.ingMonto + b.egMonto) - (a.ingMonto + a.egMonto)));
+    return rows[0] || null;
+  }).filter(Boolean);
 
   const bancoCards = bancosOrdenados.map(([banco, stats]) => {
     const total = stats.ingMonto + stats.egMonto;
     const pct = totalTx > 0 ? ((stats.ingTx + stats.egTx) / totalTx * 100).toFixed(1) : 0;
     return `<div class="banco-card">
       <div class="banco-name"><span class="badge banco">${banco}</span></div>
-      <div style="font-size:11px;color:var(--muted);margin:6px 0 4px">Volumen total</div>
-      <div style="font-size:15px;font-weight:700;font-family:'Space Mono'">${fmtN(total)}</div>
+      <div style="font-size:11px;color:var(--muted);margin:6px 0 4px">Uso total</div>
+      <div style="font-size:15px;font-weight:700;font-family:'Space Mono'">${stats.ingTx + stats.egTx} tx · ${pct}%</div>
       <div class="banco-stats" style="margin-top:6px;flex-direction:column;gap:3px">
-        <span style="color:var(--completo)">↑ Ing: ${fmtN(stats.ingMonto)} (${stats.ingTx} tx)</span>
-        <span style="color:var(--danger)">↓ Eg: ${fmtN(stats.egMonto)} (${stats.egTx} tx)</span>
-        <span style="color:var(--muted)">${pct}% de transacciones</span>
+        <span style="color:var(--completo)">↑ Ing: ${stats.ingTx} tx · USD ${fmtN(stats.ingUSD)} · S/ ${fmtN(stats.ingPEN)}</span>
+        <span style="color:var(--danger)">↓ Eg: ${stats.egTx} tx · USD ${fmtN(stats.egUSD)} · S/ ${fmtN(stats.egPEN)}</span>
+        <span style="color:var(--muted)">Volumen detectado: ${fmtN(total)}</span>
       </div>
     </div>`;
   }).join('');
 
   const monedaBlock = totalMonedaTx > 0 ? `
   <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
-    <div class="kpi-card blue"><div class="kpi-label">💵 Ingresos USD</div><div class="kpi-value" style="font-size:16px">${fmtN(byMoneda.USD.ing)}</div><div class="kpi-sub">${byMoneda.USD.ingTx} transacciones</div></div>
-    <div class="kpi-card yellow"><div class="kpi-label">S/ Ingresos PEN (Soles)</div><div class="kpi-value" style="font-size:16px">${fmtN(byMoneda.PEN.ing)}</div><div class="kpi-sub">${byMoneda.PEN.ingTx} transacciones</div></div>
-    <div class="kpi-card red"><div class="kpi-label">💵 Egresos USD</div><div class="kpi-value" style="font-size:16px">${fmtN(byMoneda.USD.eg)}</div><div class="kpi-sub">${byMoneda.USD.egTx} transacciones</div></div>
-    <div class="kpi-card orange"><div class="kpi-label">S/ Egresos PEN (Soles)</div><div class="kpi-value" style="font-size:16px">${fmtN(byMoneda.PEN.eg)}</div><div class="kpi-sub">${byMoneda.PEN.egTx} transacciones</div></div>
+    <div class="kpi-card yellow"><div class="kpi-label">S/ Ingresos PEN (Soles)</div><div class="kpi-value" style="font-size:16px">${fmtPEN(byMoneda.PEN.ing)}</div><div class="kpi-sub">${byMoneda.PEN.ingTx} transacciones</div></div>
+    <div class="kpi-card orange"><div class="kpi-label">S/ Egresos PEN (Soles)</div><div class="kpi-value" style="font-size:16px">${fmtPEN(byMoneda.PEN.eg)}</div><div class="kpi-sub">${byMoneda.PEN.egTx} transacciones</div></div>
+    <div class="kpi-card blue"><div class="kpi-label">💵 Ingresos USD</div><div class="kpi-value" style="font-size:16px">${fmtUSD(byMoneda.USD.ing)}</div><div class="kpi-sub">${byMoneda.USD.ingTx} transacciones</div></div>
+    <div class="kpi-card red"><div class="kpi-label">💵 Egresos USD</div><div class="kpi-value" style="font-size:16px">${fmtUSD(byMoneda.USD.eg)}</div><div class="kpi-sub">${byMoneda.USD.egTx} transacciones</div></div>
   </div>
   <div class="charts-row" style="margin-bottom:20px">
     <div class="chart-card"><div class="chart-title">Ingresos por Moneda (monto)</div><canvas id="chart-mon-ing"></canvas></div>
@@ -1355,33 +1529,67 @@ function renderBancos() {
   <h3 style="font-size:14px;font-weight:700;margin-bottom:12px">Detalle por Banco</h3>
   <div class="banco-grid">${bancoCards}</div>
   ${sinBanco.ingTx + sinBanco.egTx > 0 ? `<div class="help-tip">⚠️ <strong>${sinBanco.ingTx + sinBanco.egTx} transacciones sin banco detectado.</strong> Verifica que la columna "Referencia" o "Banco" contenga el nombre del banco.</div>` : ''}
-  <h3 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:20px 0 10px">Tabla completa de bancos</h3>
+  <h3 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:20px 0 10px">Tabla completa de bancos por moneda</h3>
   <div class="tbl-wrap">
     <table><thead><tr>
-      <th>BANCO</th><th class="num">ING. TX</th><th class="num">MONTO ING.</th><th class="num">EG. TX</th><th class="num">MONTO EG.</th><th class="num">TOTAL MOVIDO</th><th class="num">% TX</th>
+      <th>BANCO</th><th class="num">ING. TX</th><th class="num">ING USD</th><th class="num">ING PEN</th><th class="num">EG. TX</th><th class="num">EG USD</th><th class="num">EG PEN</th><th class="num">TOTAL TX</th><th class="num">% TX</th>
     </tr></thead><tbody>
-    ${Object.entries(byBanco).sort((a,b)=>(b[1].ingMonto+b[1].egMonto)-(a[1].ingMonto+a[1].egMonto)).map(([banco, s]) => {
-      const total = s.ingMonto + s.egMonto;
+    ${Object.entries(byBanco).sort((a,b)=>(b[1].ingTx+b[1].egTx)-(a[1].ingTx+a[1].egTx)).map(([banco, s]) => {
       const pct = totalTx > 0 ? ((s.ingTx + s.egTx) / totalTx * 100).toFixed(1) : 0;
       return `<tr>
         <td><span class="badge banco">${banco}</span></td>
         <td class="num">${s.ingTx}</td>
-        <td class="num pos">${fmtN(s.ingMonto)}</td>
+        <td class="num pos">${fmtUSD(s.ingUSD)}</td>
+        <td class="num pos">${fmtPEN(s.ingPEN)}</td>
         <td class="num">${s.egTx}</td>
-        <td class="num neg">${fmtN(s.egMonto)}</td>
-        <td class="num"><strong>${fmtN(total)}</strong></td>
+        <td class="num neg">${fmtUSD(s.egUSD)}</td>
+        <td class="num neg">${fmtPEN(s.egPEN)}</td>
+        <td class="num"><strong>${s.ingTx + s.egTx}</strong></td>
         <td class="num">${pct}%</td>
       </tr>`;
     }).join('')}
     </tbody></table>
   </div>` : `<div class="help-tip">ℹ️ <strong>Banco no detectado.</strong> Verifica que la columna "Referencia" o "Banco" en tus archivos contenga el nombre del banco (ej: BCP, BBVA, Interbank, Scotiabank...).</div>`;
 
+  const mensualBlock = bancoMensual.length ? `
+    <h3 style="font-size:14px;font-weight:700;margin:24px 0 12px">📅 Comparativo mensual de bancos usados</h3>
+    <div class="help-tip">💡 Este comparativo muestra por mes qué banco se está usando más, medido principalmente por cantidad de transacciones. También separa montos en USD y PEN para distinguir dólares y soles.</div>
+    <div class="charts-row">
+      <div class="chart-card"><div class="chart-title">Bancos usados por mes — transacciones</div><canvas id="chart-banco-mes-tx" style="max-height:300px"></canvas></div>
+      <div class="chart-card"><div class="chart-title">Banco principal de cada mes</div><canvas id="chart-banco-mes-top" style="max-height:300px"></canvas></div>
+    </div>
+    <div class="tbl-wrap tbl-scroll" style="max-height:520px">
+      <table><thead><tr>
+        <th>MES</th><th>BANCO</th><th class="num">ING TX</th><th class="num">EG TX</th><th class="num">TOTAL TX</th><th class="num">ING USD</th><th class="num">ING PEN</th><th class="num">EG USD</th><th class="num">EG PEN</th><th class="num">TOTAL MOVIDO</th>
+      </tr></thead><tbody>
+      ${bancoMensual.map(r => `<tr>
+        <td>${mesCell(r.mes)}</td>
+        <td><span class="badge banco">${r.banco}</span></td>
+        <td class="num">${r.ingTx}</td>
+        <td class="num">${r.egTx}</td>
+        <td class="num"><strong>${r.ingTx + r.egTx}</strong></td>
+        <td class="num pos">${fmtUSD(r.ingUSD)}</td>
+        <td class="num pos">${fmtPEN(r.ingPEN)}</td>
+        <td class="num neg">${fmtUSD(r.egUSD)}</td>
+        <td class="num neg">${fmtPEN(r.egPEN)}</td>
+        <td class="num"><strong>${fmtN(r.ingMonto + r.egMonto)}</strong></td>
+      </tr>`).join('')}
+      </tbody></table>
+    </div>` : `<div class="help-tip">ℹ️ No hay fechas suficientes para crear el comparativo mensual de bancos.</div>`;
+
+  const topMesBlock = topPorMes.length ? `
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-top:10px">
+      ${topPorMes.slice(-4).map(r => `<div class="kpi-card purple"><div class="kpi-label">Banco más usado · ${monthLabel(r.mes)}</div><div class="kpi-value" style="font-size:16px">${r.banco}</div><div class="kpi-sub">${r.ingTx + r.egTx} transacciones</div></div>`).join('')}
+    </div>` : '';
+
   return `<h2 class="section-title">💳 Análisis de Bancos y Monedas</h2>
-    <p class="section-sub">Desglose por tipo de moneda (USD/PEN) y banco utilizado en ingresos y egresos</p>
+    <p class="section-sub">Desglose por tipo de moneda (USD/PEN), banco utilizado y comparativo mensual para distinguir qué banco se usa más</p>
     <h3 style="font-size:14px;font-weight:700;margin-bottom:12px">💱 Desglose por Moneda</h3>
     ${monedaBlock}
     <h3 style="font-size:14px;font-weight:700;margin:20px 0 12px">🏦 Bancos Utilizados</h3>
-    ${bancosBlock}`;
+    ${bancosBlock}
+    ${topMesBlock}
+    ${mensualBlock}`;
 }
 
 function renderBancosCharts() {
@@ -1389,7 +1597,7 @@ function renderBancosCharts() {
   const { byMoneda, byBanco } = computeAggregates(viewCruce());
   // Moneda charts
   const mie = document.getElementById('chart-mon-ing');
-  if (mie && (byMoneda.USD.ing > 0 || byMoneda.PEN.ing > 0)) {
+  if (mie && (byMoneda.USD.ing > 0 || byMoneda.PEN.ing > 0 || byMoneda.DESCONOCIDA.ing > 0)) {
     if (charts.monIng) charts.monIng.destroy();
     charts.monIng = new Chart(mie, {
       type: 'doughnut',
@@ -1398,7 +1606,7 @@ function renderBancosCharts() {
     });
   }
   const mee = document.getElementById('chart-mon-eg');
-  if (mee && (byMoneda.USD.eg > 0 || byMoneda.PEN.eg > 0)) {
+  if (mee && (byMoneda.USD.eg > 0 || byMoneda.PEN.eg > 0 || byMoneda.DESCONOCIDA.eg > 0)) {
     if (charts.monEg) charts.monEg.destroy();
     charts.monEg = new Chart(mee, {
       type: 'doughnut',
@@ -1420,7 +1628,7 @@ function renderBancosCharts() {
           { label: 'Egresos',  data: bancosData.map(([,v]) => v.egTx),  backgroundColor: '#C0392B', borderRadius: 3 }
         ]
       },
-      options: { plugins: { legend: { labels: { color: '#1E2A3A', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#5A6B7E', font: { size: 10 } }, grid: { color: '#D9E0E9' } }, y: { ticks: { color: '#5A6B7E' }, grid: { color: '#D9E0E9' } } } }
+      options: { plugins: { legend: { labels: { color: '#1E2A3A', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#5A6B7E', font: { size: 10 } }, grid: { color: '#D9E0E9' } }, y: { ticks: { color: '#5A6B7E' }, grid: { color: '#D9E0E9' }, beginAtZero: true } } }
     });
   }
   const bve = document.getElementById('chart-banco-vol');
@@ -1436,7 +1644,51 @@ function renderBancosCharts() {
           { label: 'Egresos',  data: bancosVol.map(([,v]) => v.egMonto),  backgroundColor: '#C0392B', borderRadius: 3 }
         ]
       },
-      options: { plugins: { legend: { labels: { color: '#1E2A3A', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#5A6B7E', font: { size: 10 } }, grid: { color: '#D9E0E9' } }, y: { ticks: { color: '#5A6B7E' }, grid: { color: '#D9E0E9' } } } }
+      options: { plugins: { legend: { labels: { color: '#1E2A3A', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#5A6B7E', font: { size: 10 } }, grid: { color: '#D9E0E9' } }, y: { ticks: { color: '#5A6B7E' }, grid: { color: '#D9E0E9' }, beginAtZero: true } } }
+    });
+  }
+
+  const bancoMensual = buildBancoMensual(state.result.cruce);
+  const meses = [...new Set(bancoMensual.map(r => r.mes))].sort();
+  const totalByBank = {};
+  for (const r of bancoMensual) {
+    if (r.banco === 'SIN BANCO') continue;
+    totalByBank[r.banco] = (totalByBank[r.banco] || 0) + r.ingTx + r.egTx;
+  }
+  const topBanks = Object.entries(totalByBank).sort((a,b)=>b[1]-a[1]).slice(0, 6).map(([b])=>b);
+  const palette = ['#1F4E79','#2E7D5B','#B7791F','#C0392B','#6B5B95','#D97706'];
+
+  const bmt = document.getElementById('chart-banco-mes-tx');
+  if (bmt && meses.length && topBanks.length) {
+    if (charts.bancoMesTx) charts.bancoMesTx.destroy();
+    charts.bancoMesTx = new Chart(bmt, {
+      type: 'bar',
+      data: {
+        labels: meses.map(monthLabel),
+        datasets: topBanks.map((b, idx) => ({
+          label: b,
+          data: meses.map(m => bancoMensual.filter(r => r.mes === m && r.banco === b).reduce((s, r) => s + r.ingTx + r.egTx, 0)),
+          backgroundColor: palette[idx % palette.length],
+          borderRadius: 3
+        }))
+      },
+      options: { plugins: { legend: { labels: { color: '#1E2A3A', font: { size: 10 } } } }, scales: { x: { stacked: true, ticks: { color: '#5A6B7E' }, grid: { color: '#D9E0E9' } }, y: { stacked: true, beginAtZero: true, ticks: { color: '#5A6B7E' }, grid: { color: '#D9E0E9' } } } }
+    });
+  }
+
+  const bmtop = document.getElementById('chart-banco-mes-top');
+  if (bmtop && meses.length) {
+    const topMes = meses.map(m => {
+      const rows = bancoMensual.filter(r => r.mes === m && r.banco !== 'SIN BANCO')
+        .sort((a,b)=>(b.ingTx+b.egTx)-(a.ingTx+a.egTx));
+      const t = rows[0];
+      return { mes: m, banco: t ? t.banco : '—', tx: t ? t.ingTx + t.egTx : 0 };
+    });
+    if (charts.bancoMesTop) charts.bancoMesTop.destroy();
+    charts.bancoMesTop = new Chart(bmtop, {
+      type: 'bar',
+      data: { labels: topMes.map(r => `${monthLabel(r.mes)} · ${r.banco}`), datasets: [{ label: 'Tx banco principal', data: topMes.map(r => r.tx), backgroundColor: '#1F4E79', borderRadius: 3 }] },
+      options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { color: '#5A6B7E' }, grid: { color: '#D9E0E9' } }, y: { ticks: { color: '#5A6B7E', font: { size: 10 } }, grid: { color: '#D9E0E9' } } } }
     });
   }
 }
@@ -1459,8 +1711,8 @@ function renderMensual() {
       <td><span class="badge mes" style="font-size:11px">${monthLabel(mes)}</span></td>
       <td class="num">${s.filesGen}</td>
       <td class="num">${fmtN(s.maestroGen)}</td>
-      <td class="num pos">${fmtN(s.ingMonto)} <span style="color:var(--muted)">(${s.ingTx} tx)</span></td>
-      <td class="num neg">${fmtN(s.egMonto)} <span style="color:var(--muted)">(${s.egTx} tx)</span></td>
+      <td class="num pos"><strong>${fmtN(s.ingMonto)}</strong> <span style="color:var(--muted)">(${s.ingTx} tx)</span><br><span style="color:var(--muted);font-size:10px">USD ${fmtN(s.ingUSD)} · S/ ${fmtN(s.ingPEN)}</span></td>
+      <td class="num neg"><strong>${fmtN(s.egMonto)}</strong> <span style="color:var(--muted)">(${s.egTx} tx)</span><br><span style="color:var(--muted);font-size:10px">USD ${fmtN(s.egUSD)} · S/ ${fmtN(s.egPEN)}</span></td>
       <td class="num"><strong style="color:${flujo >= 0 ? 'var(--completo)' : 'var(--danger)'}">${fmtN(flujo)}</strong></td>
       <td class="num">${s.filesPerdida > 0 ? `<span class="badge perdida">${s.filesPerdida}</span> <span style="color:var(--muted)">(${pctPerdida.toFixed(0)}%)</span>` : '<span style="color:var(--completo)">0</span>'}</td>
       <td class="num">${s.filesSinIngreso > 0 ? `<span class="badge pendiente">${s.filesSinIngreso}</span>` : '0'}</td>
@@ -1476,8 +1728,8 @@ function renderMensual() {
     <div class="help-tip">💡 <strong>¿Files en pérdida o sin ingreso?</strong> Suelen ser files donde aún no se recibe el insumo para reconocer los ingresos (solo se registraron egresos). Usa "Ver files →" para listar los files de ese mes y revisar el detalle, o el filtro 📅 de las otras pestañas.</div>
     <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr)">
       <div class="kpi-card blue"><div class="kpi-label">Meses con actividad</div><div class="kpi-value">${data.length}</div></div>
-      <div class="kpi-card green"><div class="kpi-label">Total nos pagaron</div><div class="kpi-value" style="font-size:16px">${fmtN(T('ingMonto'))}</div><div class="kpi-sub">${T('ingTx')} transacciones</div></div>
-      <div class="kpi-card red"><div class="kpi-label">Total pagamos</div><div class="kpi-value" style="font-size:16px">${fmtN(T('egMonto'))}</div><div class="kpi-sub">${T('egTx')} transacciones</div></div>
+      <div class="kpi-card green"><div class="kpi-label">Total nos pagaron</div><div class="kpi-value" style="font-size:16px">${fmtN(T('ingMonto'))}</div><div class="kpi-sub">USD ${fmtN(T('ingUSD'))} · S/ ${fmtN(T('ingPEN'))} · ${T('ingTx')} tx</div></div>
+      <div class="kpi-card red"><div class="kpi-label">Total pagamos</div><div class="kpi-value" style="font-size:16px">${fmtN(T('egMonto'))}</div><div class="kpi-sub">USD ${fmtN(T('egUSD'))} · S/ ${fmtN(T('egPEN'))} · ${T('egTx')} tx</div></div>
       <div class="kpi-card ${totFlujo >= 0 ? 'green' : 'red'}"><div class="kpi-label">Flujo Neto</div><div class="kpi-value" style="font-size:16px;color:${totFlujo >= 0 ? 'var(--completo)' : 'var(--danger)'}">${fmtN(totFlujo)}</div></div>
       <div class="kpi-card orange"><div class="kpi-label">Files en Pérdida</div><div class="kpi-value">${T('filesPerdida')}</div><div class="kpi-sub">${T('filesSinIngreso')} sin ingreso reconocido</div></div>
     </div>
@@ -1572,7 +1824,7 @@ function exportExcel() {
   const wb = XLSX.utils.book_new();
 
   // 1. RESUMEN EJECUTIVO
-  const { totals, profitTotals } = state.result;
+  const { totals, profitTotals, byMoneda, byBanco } = state.result;
   const resumen = [
     ['VACACIONATE SAC — RESUMEN EJECUTIVO'],
     [`Generado: ${new Date().toLocaleString('es-PE')}`],
@@ -1582,6 +1834,10 @@ function exportExcel() {
     ['Total Maestro (USD)', totals.maestro],
     ['Total Ingresos (USD)', totals.ingresos],
     ['Total Egresos (USD)', totals.egresos],
+    ['Ingresos USD', byMoneda.USD.ing],
+    ['Ingresos PEN (Soles)', byMoneda.PEN.ing],
+    ['Egresos USD', byMoneda.USD.eg],
+    ['Egresos PEN (Soles)', byMoneda.PEN.eg],
     ['Pendiente de Cobro (USD)', Math.max(0, totals.pendiente)],
     ['Ganancia Total (Ing − Eg)', profitTotals.ganancia],
     ['Margen Promedio %', profitTotals.margenPromedio.toFixed(2)],
@@ -1603,10 +1859,10 @@ function exportExcel() {
   // 2B. COMPARATIVO MENSUAL
   const mensualData = buildMensual();
   if (mensualData.length) {
-    const menHdr = ['MES', 'FILES GENERADOS', 'MONTO MAESTRO', 'NOS PAGARON (ING)', '#TX ING', 'PAGAMOS (EG)', '#TX EG', 'FLUJO NETO', 'FILES EN PÉRDIDA', 'FILES SIN INGRESO', 'FILES PENDIENTES/PARCIALES', 'FILES COMPLETOS', 'PENDIENTE COBRO $'];
-    const menRows = mensualData.map(([mes, s]) => [monthLabel(mes), s.filesGen, s.maestroGen, s.ingMonto, s.ingTx, s.egMonto, s.egTx, s.ingMonto - s.egMonto, s.filesPerdida, s.filesSinIngreso, s.filesPendientes, s.filesCompletos, s.pendienteGen]);
+    const menHdr = ['MES', 'FILES GENERADOS', 'MONTO MAESTRO', 'NOS PAGARON (ING)', 'ING USD', 'ING PEN', '#TX ING', 'PAGAMOS (EG)', 'EG USD', 'EG PEN', '#TX EG', 'FLUJO NETO', 'FILES EN PÉRDIDA', 'FILES SIN INGRESO', 'FILES PENDIENTES/PARCIALES', 'FILES COMPLETOS', 'PENDIENTE COBRO $'];
+    const menRows = mensualData.map(([mes, s]) => [monthLabel(mes), s.filesGen, s.maestroGen, s.ingMonto, s.ingUSD, s.ingPEN, s.ingTx, s.egMonto, s.egUSD, s.egPEN, s.egTx, s.ingMonto - s.egMonto, s.filesPerdida, s.filesSinIngreso, s.filesPendientes, s.filesCompletos, s.pendienteGen]);
     const TM = (i) => menRows.reduce((a, r) => a + (typeof r[i] === 'number' ? r[i] : 0), 0);
-    menRows.push(['TOTAL', TM(1), TM(2), TM(3), TM(4), TM(5), TM(6), TM(7), TM(8), TM(9), TM(10), TM(11), TM(12)]);
+    menRows.push(['TOTAL', TM(1), TM(2), TM(3), TM(4), TM(5), TM(6), TM(7), TM(8), TM(9), TM(10), TM(11), TM(12), TM(13), TM(14), TM(15), TM(16)]);
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([menHdr, ...menRows]), '2B.COMPARATIVO MENSUAL');
   }
 
@@ -1631,13 +1887,20 @@ function exportExcel() {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([egHdr, ...egRowsAll]), '4.TRAZ EGRESOS');
 
   // 5B. BANCOS (nueva hoja)
-  const bancoHdr = ['BANCO', 'ING. TRANSACCIONES', 'MONTO INGRESOS', 'EG. TRANSACCIONES', 'MONTO EGRESOS', 'TOTAL MOVIDO'];
-  const bancoRows = Object.entries(state.result.byBanco).sort((a,b)=>(b[1].ingMonto+b[1].egMonto)-(a[1].ingMonto+a[1].egMonto))
-    .map(([banco, s]) => [banco, s.ingTx, s.ingMonto, s.egTx, s.egMonto, s.ingMonto + s.egMonto]);
+  const bancoHdr = ['BANCO', 'ING. TX', 'ING USD', 'ING PEN', 'ING SIN MONEDA', 'EG. TX', 'EG USD', 'EG PEN', 'EG SIN MONEDA', 'TOTAL TX', 'TOTAL MOVIDO'];
+  const bancoRows = Object.entries(byBanco).sort((a,b)=>(b[1].ingTx+b[1].egTx)-(a[1].ingTx+a[1].egTx))
+    .map(([banco, s]) => [banco, s.ingTx, s.ingUSD, s.ingPEN, s.ingSinMoneda, s.egTx, s.egUSD, s.egPEN, s.egSinMoneda, s.ingTx + s.egTx, s.ingMonto + s.egMonto]);
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([bancoHdr, ...bancoRows]), '5B.BANCOS');
 
+  // 5B.1 BANCOS POR MES
+  const bancoMensual = buildBancoMensual(state.result.cruce);
+  if (bancoMensual.length) {
+    const bmHdr = ['MES', 'BANCO', 'ING TX', 'EG TX', 'TOTAL TX', 'ING USD', 'ING PEN', 'EG USD', 'EG PEN', 'TOTAL MOVIDO'];
+    const bmRows = bancoMensual.map(r => [monthLabel(r.mes), r.banco, r.ingTx, r.egTx, r.ingTx + r.egTx, r.ingUSD, r.ingPEN, r.egUSD, r.egPEN, r.ingMonto + r.egMonto]);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([bmHdr, ...bmRows]), '5B1.BANCOS MES');
+  }
+
   // 5C. MONEDAS (nueva hoja)
-  const { byMoneda } = state.result;
   const monedaSheet = [
     ['MONEDA', 'ING. TX', 'MONTO INGRESOS', 'EG. TX', 'MONTO EGRESOS'],
     ['USD', byMoneda.USD.ingTx, byMoneda.USD.ing, byMoneda.USD.egTx, byMoneda.USD.eg],
@@ -1766,7 +2029,7 @@ tbody td{padding:9px 12px;white-space:nowrap;max-width:200px;overflow:hidden;tex
 .aging-card.b0{border-top:3px solid #1F6B4A;}.aging-card.b1{border-top:3px solid #946215;}.aging-card.b2{border-top:3px solid #B45309;}.aging-card.b3{border-top:3px solid #C0392B;}.aging-card.b4{border-top:3px solid #7F1D1D;}
 .aging-count{font-size:24px;font-weight:700;font-family:'Space Mono';margin:6px 0 2px;}.aging-amount{font-size:11px;color:var(--muted);font-family:'Space Mono';}.aging-label{font-size:11px;color:var(--muted);font-weight:600;}
 thead th{background:#1F4E79;color:#FFFFFF;border-bottom:2px solid #16395A;}tbody tr:nth-child(even){background:#F8FAFC;}tbody tr:hover{background:#E8EFF7;}.chart-card,.kpi-card,.aging-card,.tbl-wrap,.modal{box-shadow:0 1px 3px rgba(30,42,58,.07);}</style></head><body>
-<div class="header"><div class="logo">V</div><div><div style="font-size:16px;font-weight:700">Vacacionate SAC — Dashboard Dinámico</div><div style="font-size:11px;color:var(--muted)">Reporte exportado · Datos embebidos · Sin necesidad de re-cargar archivos</div></div><div style="margin-left:auto;font-size:12px;color:var(--muted);font-family:'Space Mono'" id="gen-date"></div></div>
+<div class="header"><div class="logo">V</div><div><div style="font-size:16px;font-weight:700">Vacacionate SAC — Dashboard Dinámico</div><div style="font-size:11px;color:var(--muted)">Reporte exportado · Datos embebidos · Sin archivos externos</div></div><div style="margin-left:auto;font-size:12px;color:var(--muted);font-family:'Space Mono'" id="gen-date"></div></div>
 <div class="tabs"><div class="tab active" data-t="dash">📊 Dashboard</div><div class="tab" data-t="mensual">📅 Mensual</div><div class="tab" data-t="cruce">📋 Cruce</div><div class="tab" data-t="criticos">🚨 Críticos</div><div class="tab" data-t="rent">💰 Rentabilidad</div></div>
 <div class="main" id="content"></div>
 <div class="modal-bg" id="modal-bg" onclick="if(event.target.id==='modal-bg')closeModal()"><div class="modal" id="modal"></div></div>
@@ -1892,41 +2155,81 @@ function updateSearch(v) { state.search = v; render(); setTimeout(() => { const 
 function updateSearchTraz(v) { state.search = v; render(); setTimeout(() => { const s = document.querySelector('.search-input'); if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); } }, 0); }
 function updateFilter(v) { state.filter = v; render(); }
 function selectFile(fn) { state.selectedFile = fn; state.tab = 'trazabilidad'; document.querySelectorAll('.tab').forEach(t => { t.classList.toggle('active', t.dataset.tab === 'trazabilidad'); }); render(); }
-function onFileInput(cat, input) { const files = Array.from(input.files); if (!files.length) return; if (cat === 'maestro') state.files.maestro = files[0]; else state.files[cat] = [...state.files[cat], ...files]; input.value = ''; render(); }
-function removeFile(cat, idx) { if (cat === 'maestro') state.files.maestro = null; else state.files[cat] = state.files[cat].filter((_, i) => i !== idx); render(); }
 
-const analyze = async () => {
-  const { files } = state;
-  if (!files.maestro) { showError('Por favor carga el archivo Maestro'); return; }
-  if (!files.ingresos.length) { showError('Por favor carga al menos un archivo de Ingresos'); return; }
-  if (!files.egresos.length) { showError('Por favor carga al menos un archivo de Egresos'); return; }
-  setLoading(true);
+const analyzeFromDrive = async () => {
+  if (!isDriveEndpointConfigured()) {
+    state.drive = { status: 'error', message: 'Servicio de datos no configurado. Revisa la configuración interna del HTML.', lastSync: null, meta: null };
+    render();
+    return;
+  }
+  state.drive.status = 'loading';
+  state.drive.message = 'Procesando información financiera...';
+  render();
   try {
-    const mData = await readSheetData(files.maestro);
+    const driveData = await fetchDriveFiles();
+    state.files.maestro = driveData.maestro;
+    state.files.ingresos = driveData.ingresos;
+    state.files.egresos = driveData.egresos;
+
+    if (!state.files.maestro) throw new Error('No se recibió la información principal para el análisis.');
+    if (!state.files.ingresos.length) throw new Error('No se recibieron movimientos de entrada para el análisis.');
+    if (!state.files.egresos.length) throw new Error('No se recibieron movimientos de salida para el análisis.');
+
+    const mData = await readSheetData(state.files.maestro);
     const maestroArr = parseMaestro(mData);
-    if (!maestroArr.length) throw new Error('No se pudo leer el archivo Maestro. Verifica que tenga columnas "File" y "Total".');
+    if (!maestroArr.length) throw new Error('No se pudo interpretar la información principal. Verifica las columnas File y Total.');
+
     const ingRows = [];
-    for (const f of files.ingresos) { const d = await readSheetData(f); ingRows.push(...parseIngreso(d, f.name)); }
+    for (const f of state.files.ingresos) {
+      const d = await readSheetData(f);
+      ingRows.push(...parseIngreso(d, f.name));
+    }
+
     const egRows = [];
-    for (const f of files.egresos) { const d = await readSheetData(f); egRows.push(...parseEgreso(d, f.name)); }
-    // Dedupe egresos by Recibo
+    for (const f of state.files.egresos) {
+      const d = await readSheetData(f);
+      egRows.push(...parseEgreso(d, f.name));
+    }
+
     const egSeen = new Set();
-    const egUniq = egRows.filter(r => { if (egSeen.has(r.Recibo)) return false; egSeen.add(r.Recibo); return true; });
+    const egUniq = egRows.filter(r => {
+      const key = r.Recibo || `${r.File_Num || 'SINFILE'}_${r.Monto}_${fmtDate(r.Fecha)}_${r.Filename}`;
+      if (egSeen.has(key)) return false;
+      egSeen.add(key);
+      return true;
+    });
+
     const { cruce, egSinFile } = crossRef(maestroArr, ingRows, egUniq);
-    state.mesFiltro = 'ALL'; state.mesCriterio = 'gen';
+    state.mesFiltro = 'ALL';
+    state.mesCriterio = 'gen';
     state.result = { cruce, egSinFile, ...computeAggregates(cruce) };
-    setLoading(false);
+    state.drive = {
+      status: 'ready',
+      message: 'Dashboard actualizado correctamente desde Google Drive.',
+      lastSync: new Date(),
+      meta: {
+        ...(driveData.meta || {}),
+        maestroName: state.files.maestro.name,
+        ingresosCount: state.files.ingresos.length,
+        egresosCount: state.files.egresos.length,
+        filasMaestro: maestroArr.length,
+        filasIngresos: ingRows.length,
+        filasEgresos: egUniq.length
+      }
+    };
     enableTabs();
     switchTab('dashboard');
   } catch (err) {
-    setLoading(false);
-    showError(err.message);
+    state.result = null;
+    state.drive = { status: 'error', message: err.message, lastSync: null, meta: state.drive?.meta || null };
     console.error(err);
+    render();
   }
 };
 
-document.querySelectorAll('.tabs .tab').forEach(t => { t.onclick = () => { if (!t.classList.contains('disabled')) switchTab(t.dataset.tab); }; });
+document.querySelectorAll('.tabs .tab').forEach(t => { t.onclick = () => switchTab(t.dataset.tab); });
 render();
+if (isDriveEndpointConfigured()) analyzeFromDrive();
 </script>
 </body>
 </html>
