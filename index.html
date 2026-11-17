@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Vacacionate SAC — Dashboard Financiero v4.6 Bancos y Monedas</title>
+<title>Vacacionate SAC — Dashboard Financiero v4.7 Detección Total de Monedas</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
@@ -155,6 +155,7 @@
   .help-tip strong{color:var(--accent2);}
   .badge.usd{background:rgba(31,78,121,.2);color:#1F4E79;}
   .badge.pen{background:rgba(183,121,31,.2);color:#946215;}
+  .badge.eur{background:rgba(107,91,149,.18);color:#5D4E8C;}
   .badge.banco{background:rgba(107,91,149,.15);color:#5D4E8C;border:1px solid rgba(107,91,149,.25);}
   .banco-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
   .banco-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;}
@@ -185,7 +186,7 @@
   <div class="logo">V</div>
   <div>
     <div class="app-title">Vacacionate SAC — Analizador Financiero</div>
-    <div class="app-subtitle">v4.6 Executive Online · Bancos por Mes · Monedas USD/PEN</div>
+    <div class="app-subtitle">v4.7 Executive Online · Detección total de Monedas (US/NS/EU) · Bancos por Mes</div>
   </div>
   <div class="app-sub">Dashboard Ejecutivo Online</div>
 </div>
@@ -279,18 +280,50 @@ const fmtN = (n) => (n || 0).toLocaleString('es-PE', { minimumFractionDigits: 2,
 const fmtPct = (n) => isFinite(n) ? `${n.toFixed(1)}%` : '—';
 
 // ── Moneda ──────────────────────────────────────────────────────
+// Códigos exactos que usa el sistema de Vacaciones en la columna "Mon." (US / NS / EU) y variantes comunes
+const MONEDA_CODE_MAP = {
+  'US':'USD','USD':'USD','US$':'USD','U$':'USD','U$S':'USD','$':'USD','USD$':'USD',
+  'DOL':'USD','DOLAR':'USD','DÓLAR':'USD','DOLARES':'USD','DÓLARES':'USD','DOLLAR':'USD','DOLLARS':'USD',
+  'NS':'PEN','N.S':'PEN','N.S.':'PEN','N/S':'PEN','S':'PEN','S/':'PEN','S/.':'PEN','SO':'PEN','SOL':'PEN',
+  'SOLES':'PEN','PEN':'PEN','MN':'PEN','M.N':'PEN','M.N.':'PEN','NUEVO SOL':'PEN','NUEVOS SOLES':'PEN',
+  'EU':'EUR','EUR':'EUR','€':'EUR','EURO':'EUR','EUROS':'EUR'
+};
 const MONEDA_USD_RE = /USD|US\$|D[ÓO]LAR(ES)?|DOLLAR|\bDOL\b|\$/i;
-const MONEDA_PEN_RE = /\bPEN\b|S\/\.?|SOLES?|\bSOL\b/i;
+const MONEDA_PEN_RE = /\bPEN\b|S\/\.?|SOLES?|\bSOL\b|\bNS\b|NUEVOS?\s*SOL/i;
+const MONEDA_EUR_RE = /\bEUR\b|€|\bEUROS?\b/i;
 const detectMoneda = (val) => {
-  if (!val) return null;
-  const s = String(val).trim();
+  if (val === null || val === undefined) return null;
+  const s = String(val).trim().toUpperCase();
+  if (!s) return null;
+  // 1º: código exacto (así viene en la columna "Mon." del sistema: US, NS, EU)
+  if (MONEDA_CODE_MAP[s]) return MONEDA_CODE_MAP[s];
+  const sp = s.replace(/[.\s]+$/, '');
+  if (MONEDA_CODE_MAP[sp]) return MONEDA_CODE_MAP[sp];
+  // 2º: búsqueda por texto (por si viene dentro de referencia/concepto)
   if (MONEDA_USD_RE.test(s)) return 'USD';
   if (MONEDA_PEN_RE.test(s)) return 'PEN';
+  if (MONEDA_EUR_RE.test(s)) return 'EUR';
   return null;
+};
+// Respaldo final para que NINGUNA transacción quede sin moneda:
+// a las filas sin código se les asigna la moneda predominante de su mismo archivo
+// (o la predominante global si el archivo no tiene ninguna), marcándolas como inferidas.
+const fillMonedaFaltante = (rows) => {
+  const porArchivo = {}, global = {};
+  for (const r of rows) if (r.Moneda) {
+    (porArchivo[r.Filename] = porArchivo[r.Filename] || {})[r.Moneda] = (porArchivo[r.Filename][r.Moneda] || 0) + 1;
+    global[r.Moneda] = (global[r.Moneda] || 0) + 1;
+  }
+  const mayoria = (obj) => { let best = null, bn = 0; for (const [k, v] of Object.entries(obj || {})) if (v > bn) { bn = v; best = k; } return best; };
+  const globalMaj = mayoria(global) || 'USD';
+  let n = 0;
+  for (const r of rows) if (!r.Moneda) { r.Moneda = mayoria(porArchivo[r.Filename]) || globalMaj; r.MonedaInferida = true; n++; }
+  return n;
 };
 const monedaBadge = (m) => {
   if (m === 'USD') return '<span class="badge usd">💵 USD</span>';
   if (m === 'PEN') return '<span class="badge pen">S/ PEN</span>';
+  if (m === 'EUR') return '<span class="badge eur">€ EUR</span>';
   return '<span style="color:var(--muted)">—</span>';
 };
 const BANCO_LIST = [
@@ -623,10 +656,14 @@ const crossRef = (maestroArr, ingRows, egRows) => {
     // Per-currency breakdown
     const ing_USD = ings.filter(r => r.Moneda === 'USD').reduce((s, r) => s + r.Monto, 0);
     const ing_PEN = ings.filter(r => r.Moneda === 'PEN').reduce((s, r) => s + r.Monto, 0);
+    const ing_EUR = ings.filter(r => r.Moneda === 'EUR').reduce((s, r) => s + r.Monto, 0);
     const eg_USD  = egs.filter(r => r.Moneda === 'USD').reduce((s, r) => s + r.Monto, 0);
     const eg_PEN  = egs.filter(r => r.Moneda === 'PEN').reduce((s, r) => s + r.Monto, 0);
-    // Predominant moneda for the file
-    const monedaFile = ing_USD > ing_PEN ? (ing_USD > 0 ? 'USD' : (ing_PEN > 0 ? 'PEN' : null)) : (ing_PEN > 0 ? 'PEN' : (ing_USD > 0 ? 'USD' : null));
+    const eg_EUR  = egs.filter(r => r.Moneda === 'EUR').reduce((s, r) => s + r.Monto, 0);
+    // Moneda predominante del file (por monto; primero ingresos, si no hay, egresos)
+    let monedaFile = null, _mBest = 0;
+    for (const [k, v] of [['USD', ing_USD], ['PEN', ing_PEN], ['EUR', ing_EUR]]) if (v > _mBest) { _mBest = v; monedaFile = k; }
+    if (!monedaFile) for (const [k, v] of [['USD', eg_USD], ['PEN', eg_PEN], ['EUR', eg_EUR]]) if (v > _mBest) { _mBest = v; monedaFile = k; }
 
     // Date analysis
     const ingDates = ings.map(r => r.Fecha).filter(Boolean);
@@ -721,7 +758,7 @@ const crossRef = (maestroArr, ingRows, egRows) => {
       DiasDesdeInicio: daysSinceFirst, DiasSinIngreso: daysSinceLastIng,
       AgingBucket: agingBucket, Criticidad: criticidad, ScoreCrit: scoreCrit,
       AlertaRentabilidad: alertaRent,
-      Ing_USD: ing_USD, Ing_PEN: ing_PEN, Eg_USD: eg_USD, Eg_PEN: eg_PEN,
+      Ing_USD: ing_USD, Ing_PEN: ing_PEN, Ing_EUR: ing_EUR, Eg_USD: eg_USD, Eg_PEN: eg_PEN, Eg_EUR: eg_EUR,
       Moneda: monedaFile,
       Ingresos: ings, Egresos: egs,
       NumIngresos: ings.length, NumEgresos: egs.length
@@ -745,6 +782,7 @@ function computeAggregates(cruce) {
   const byMoneda = {
     USD: { ing: sumTx(allIngTx, 'USD'), eg: sumTx(allEgTx, 'USD'), ingTx: countTx(allIngTx, 'USD'), egTx: countTx(allEgTx, 'USD') },
     PEN: { ing: sumTx(allIngTx, 'PEN'), eg: sumTx(allEgTx, 'PEN'), ingTx: countTx(allIngTx, 'PEN'), egTx: countTx(allEgTx, 'PEN') },
+    EUR: { ing: sumTx(allIngTx, 'EUR'), eg: sumTx(allEgTx, 'EUR'), ingTx: countTx(allIngTx, 'EUR'), egTx: countTx(allEgTx, 'EUR') },
     DESCONOCIDA: { ing: sumTx(allIngTx, null), eg: sumTx(allEgTx, null), ingTx: countTx(allIngTx, null), egTx: countTx(allEgTx, null) }
   };
   const byBanco = {};
@@ -756,6 +794,7 @@ function computeAggregates(cruce) {
     byBanco[b].ingMonto += tx.Monto;
     if (tx.Moneda === 'USD') byBanco[b].ingUSD += tx.Monto;
     else if (tx.Moneda === 'PEN') byBanco[b].ingPEN += tx.Monto;
+    else if (tx.Moneda === 'EUR') byBanco[b].ingEUR = (byBanco[b].ingEUR || 0) + tx.Monto;
     else byBanco[b].ingSinMoneda += tx.Monto;
   }
   for (const tx of allEgTx)  {
@@ -765,6 +804,7 @@ function computeAggregates(cruce) {
     byBanco[b].egMonto += tx.Monto;
     if (tx.Moneda === 'USD') byBanco[b].egUSD += tx.Monto;
     else if (tx.Moneda === 'PEN') byBanco[b].egPEN += tx.Monto;
+    else if (tx.Moneda === 'EUR') byBanco[b].egEUR = (byBanco[b].egEUR || 0) + tx.Monto;
     else byBanco[b].egSinMoneda += tx.Monto;
   }
   return {
@@ -847,6 +887,7 @@ function buildMensual() {
       const s = get(k); s.ingMonto += i.Monto; s.ingTx++;
       if (i.Moneda === 'USD') s.ingUSD += i.Monto;
       else if (i.Moneda === 'PEN') s.ingPEN += i.Monto;
+      else if (i.Moneda === 'EUR') s.ingEUR = (s.ingEUR || 0) + i.Monto;
       else s.ingSinMoneda += i.Monto;
     }
     for (const e of r.Egresos)  {
@@ -854,6 +895,7 @@ function buildMensual() {
       const s = get(k); s.egMonto += e.Monto; s.egTx++;
       if (e.Moneda === 'USD') s.egUSD += e.Monto;
       else if (e.Moneda === 'PEN') s.egPEN += e.Monto;
+      else if (e.Moneda === 'EUR') s.egEUR = (s.egEUR || 0) + e.Monto;
       else s.egSinMoneda += e.Monto;
     }
     if (r.MesGeneracion) {
@@ -888,6 +930,7 @@ function buildBancoMensual(cruce = state.result.cruce) {
       o.ingTx++; o.ingMonto += i.Monto;
       if (i.Moneda === 'USD') o.ingUSD += i.Monto;
       else if (i.Moneda === 'PEN') o.ingPEN += i.Monto;
+      else if (i.Moneda === 'EUR') o.ingEUR = (o.ingEUR || 0) + i.Monto;
       else o.ingSinMoneda += i.Monto;
     }
     for (const e of r.Egresos) {
@@ -897,6 +940,7 @@ function buildBancoMensual(cruce = state.result.cruce) {
       o.egTx++; o.egMonto += e.Monto;
       if (e.Moneda === 'USD') o.egUSD += e.Monto;
       else if (e.Moneda === 'PEN') o.egPEN += e.Monto;
+      else if (e.Moneda === 'EUR') o.egEUR = (o.egEUR || 0) + e.Monto;
       else o.egSinMoneda += e.Monto;
     }
   }
@@ -955,17 +999,25 @@ function renderDashboard() {
   const eColors = { 'COBRO COMPLETO': 'completo', 'COBRO PARCIAL': 'parcial', 'PENDIENTE COBRO': 'pendiente', 'EXCEDENTE': 'excedente' };
   const statusCards = Object.entries(byEstado).map(([k, v]) => `<div class="stat-card ${eColors[k] || 'parcial'}"><div class="stat-n">${v.toLocaleString()}</div><div class="stat-label">${k}</div></div>`).join('');
   const gananciaColor = profitTotals.ganancia >= 0 ? 'var(--completo)' : 'var(--danger)';
-  // Moneda detected?
-  const totalMonedaTx = (byMoneda.USD.ingTx + byMoneda.USD.egTx + byMoneda.PEN.ingTx + byMoneda.PEN.egTx);
+  // Moneda: USD/PEN siempre, EUR solo si hay movimientos; nada queda sin detectar
+  const totalMonedaTx = (byMoneda.USD.ingTx + byMoneda.USD.egTx + byMoneda.PEN.ingTx + byMoneda.PEN.egTx + byMoneda.EUR.ingTx + byMoneda.EUR.egTx);
+  const eurTx = byMoneda.EUR.ingTx + byMoneda.EUR.egTx;
+  const inferidasTx = cruceV.flatMap(r => [...r.Ingresos, ...r.Egresos]).filter(t => t.MonedaInferida).length;
+  const fmtEUR = (n) => '€ ' + fmtN(n);
   const monedaSection = totalMonedaTx > 0 ? `
-  <h3 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">💱 Resumen de Ingresos y Egresos por Moneda</h3>
+  <h3 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">💱 Resumen de Ingresos y Egresos por Moneda — 100% de transacciones con moneda asignada</h3>
   <div class="moneda-row">
     <div class="kpi-card yellow"><div class="kpi-label">S/ Ingresos en Soles</div><div class="kpi-value" style="font-size:17px;color:var(--warn)">${fmtPEN(byMoneda.PEN.ing)}</div><div class="kpi-sub">${byMoneda.PEN.ingTx} transacciones PEN</div></div>
     <div class="kpi-card orange"><div class="kpi-label">S/ Egresos en Soles</div><div class="kpi-value" style="font-size:17px;color:var(--danger)">${fmtPEN(byMoneda.PEN.eg)}</div><div class="kpi-sub">${byMoneda.PEN.egTx} transacciones PEN</div></div>
     <div class="kpi-card blue"><div class="kpi-label">💵 Ingresos en Dólares</div><div class="kpi-value" style="font-size:17px;color:var(--accent2)">${fmtUSD(byMoneda.USD.ing)}</div><div class="kpi-sub">${byMoneda.USD.ingTx} transacciones USD</div></div>
     <div class="kpi-card red"><div class="kpi-label">💵 Egresos en Dólares</div><div class="kpi-value" style="font-size:17px;color:var(--danger)">${fmtUSD(byMoneda.USD.eg)}</div><div class="kpi-sub">${byMoneda.USD.egTx} transacciones USD</div></div>
   </div>
-  ${byMoneda.DESCONOCIDA.ingTx + byMoneda.DESCONOCIDA.egTx > 0 ? `<div class="help-tip">⚠️ Hay ${byMoneda.DESCONOCIDA.ingTx + byMoneda.DESCONOCIDA.egTx} transacciones sin moneda detectada. Revisa que tus Excel tengan columna <strong>Moneda</strong> con USD o PEN.</div>` : ''}` : `<div class="help-tip">ℹ️ <strong>Moneda no detectada automáticamente.</strong> Agrega una columna <strong>"Moneda"</strong> con valores "USD" o "PEN" en tus archivos para ver ingresos y egresos en soles y dólares.</div>`;
+  ${eurTx > 0 ? `<div class="moneda-row" style="grid-template-columns:repeat(2,1fr)">
+    <div class="kpi-card purple"><div class="kpi-label">€ Ingresos en Euros</div><div class="kpi-value" style="font-size:17px;color:var(--purple)">${fmtEUR(byMoneda.EUR.ing)}</div><div class="kpi-sub">${byMoneda.EUR.ingTx} transacciones EUR</div></div>
+    <div class="kpi-card purple"><div class="kpi-label">€ Egresos en Euros</div><div class="kpi-value" style="font-size:17px;color:var(--purple)">${fmtEUR(byMoneda.EUR.eg)}</div><div class="kpi-sub">${byMoneda.EUR.egTx} transacciones EUR</div></div>
+  </div>` : ''}
+  ${inferidasTx > 0 ? `<div class="help-tip">ℹ️ ${inferidasTx} transacciones venían sin código en la columna "Mon." del Excel; se les asignó automáticamente la moneda predominante de su archivo para que nada quede sin clasificar.</div>` : ''}
+  ${byMoneda.DESCONOCIDA.ingTx + byMoneda.DESCONOCIDA.egTx > 0 ? `<div class="help-tip">⚠️ Hay ${byMoneda.DESCONOCIDA.ingTx + byMoneda.DESCONOCIDA.egTx} transacciones sin moneda detectada. Revisa que tus Excel tengan columna <strong>Mon.</strong> o <strong>Moneda</strong> (US/USD, NS/PEN, EU/EUR).</div>` : ''}` : `<div class="help-tip">ℹ️ <strong>Moneda no detectada automáticamente.</strong> El dashboard reconoce la columna <strong>"Mon."</strong> del sistema (US = dólares, NS = soles, EU = euros) y también "Moneda" con USD/PEN/EUR.</div>`;
   return `<div class="kpi-grid">
     <div class="kpi-card blue"><div class="kpi-label">Total Files</div><div class="kpi-value">${totals.files.toLocaleString()}</div><div class="kpi-sub">en el maestro</div></div>
     <div class="kpi-card blue"><div class="kpi-label">Total Maestro</div><div class="kpi-value" style="font-size:16px">${fmt(totals.maestro)}</div><div class="kpi-sub">USD</div></div>
@@ -1479,7 +1531,7 @@ function renderBancos() {
   const allIngTx = cruce.flatMap(r => r.Ingresos);
   const allEgTx  = cruce.flatMap(r => r.Egresos);
   const totalTx = allIngTx.length + allEgTx.length;
-  const totalMonedaTx = byMoneda.USD.ingTx + byMoneda.USD.egTx + byMoneda.PEN.ingTx + byMoneda.PEN.egTx;
+  const totalMonedaTx = byMoneda.USD.ingTx + byMoneda.USD.egTx + byMoneda.PEN.ingTx + byMoneda.PEN.egTx + byMoneda.EUR.ingTx + byMoneda.EUR.egTx;
 
   // Sorted banks (exclude SIN BANCO for summary)
   const bancosOrdenados = Object.entries(byBanco)
@@ -1516,6 +1568,10 @@ function renderBancos() {
     <div class="kpi-card blue"><div class="kpi-label">💵 Ingresos USD</div><div class="kpi-value" style="font-size:16px">${fmtUSD(byMoneda.USD.ing)}</div><div class="kpi-sub">${byMoneda.USD.ingTx} transacciones</div></div>
     <div class="kpi-card red"><div class="kpi-label">💵 Egresos USD</div><div class="kpi-value" style="font-size:16px">${fmtUSD(byMoneda.USD.eg)}</div><div class="kpi-sub">${byMoneda.USD.egTx} transacciones</div></div>
   </div>
+  ${byMoneda.EUR.ingTx + byMoneda.EUR.egTx > 0 ? `<div class="kpi-grid" style="grid-template-columns:repeat(2,1fr)">
+    <div class="kpi-card purple"><div class="kpi-label">€ Ingresos EUR (Euros)</div><div class="kpi-value" style="font-size:16px">€ ${fmtN(byMoneda.EUR.ing)}</div><div class="kpi-sub">${byMoneda.EUR.ingTx} transacciones</div></div>
+    <div class="kpi-card purple"><div class="kpi-label">€ Egresos EUR (Euros)</div><div class="kpi-value" style="font-size:16px">€ ${fmtN(byMoneda.EUR.eg)}</div><div class="kpi-sub">${byMoneda.EUR.egTx} transacciones</div></div>
+  </div>` : ''}
   <div class="charts-row" style="margin-bottom:20px">
     <div class="chart-card"><div class="chart-title">Ingresos por Moneda (monto)</div><canvas id="chart-mon-ing"></canvas></div>
     <div class="chart-card"><div class="chart-title">Egresos por Moneda (monto)</div><canvas id="chart-mon-eg"></canvas></div>
@@ -1597,20 +1653,20 @@ function renderBancosCharts() {
   const { byMoneda, byBanco } = computeAggregates(viewCruce());
   // Moneda charts
   const mie = document.getElementById('chart-mon-ing');
-  if (mie && (byMoneda.USD.ing > 0 || byMoneda.PEN.ing > 0 || byMoneda.DESCONOCIDA.ing > 0)) {
+  if (mie && (byMoneda.USD.ing > 0 || byMoneda.PEN.ing > 0 || byMoneda.EUR.ing > 0 || byMoneda.DESCONOCIDA.ing > 0)) {
     if (charts.monIng) charts.monIng.destroy();
     charts.monIng = new Chart(mie, {
       type: 'doughnut',
-      data: { labels: ['USD', 'PEN', 'Sin moneda'], datasets: [{ data: [byMoneda.USD.ing, byMoneda.PEN.ing, byMoneda.DESCONOCIDA.ing], backgroundColor: ['#1F4E79','#B7791F','#5A6B7E'], borderColor: '#FFFFFF', borderWidth: 2 }] },
+      data: { labels: ['USD', 'PEN', 'EUR', 'Sin moneda'], datasets: [{ data: [byMoneda.USD.ing, byMoneda.PEN.ing, byMoneda.EUR.ing, byMoneda.DESCONOCIDA.ing], backgroundColor: ['#1F4E79','#B7791F','#6B5B95','#5A6B7E'], borderColor: '#FFFFFF', borderWidth: 2 }] },
       options: { plugins: { legend: { labels: { color: '#1E2A3A', font: { size: 11 } } } }, cutout: '60%' }
     });
   }
   const mee = document.getElementById('chart-mon-eg');
-  if (mee && (byMoneda.USD.eg > 0 || byMoneda.PEN.eg > 0 || byMoneda.DESCONOCIDA.eg > 0)) {
+  if (mee && (byMoneda.USD.eg > 0 || byMoneda.PEN.eg > 0 || byMoneda.EUR.eg > 0 || byMoneda.DESCONOCIDA.eg > 0)) {
     if (charts.monEg) charts.monEg.destroy();
     charts.monEg = new Chart(mee, {
       type: 'doughnut',
-      data: { labels: ['USD', 'PEN', 'Sin moneda'], datasets: [{ data: [byMoneda.USD.eg, byMoneda.PEN.eg, byMoneda.DESCONOCIDA.eg], backgroundColor: ['#1F4E79','#B7791F','#5A6B7E'], borderColor: '#FFFFFF', borderWidth: 2 }] },
+      data: { labels: ['USD', 'PEN', 'EUR', 'Sin moneda'], datasets: [{ data: [byMoneda.USD.eg, byMoneda.PEN.eg, byMoneda.EUR.eg, byMoneda.DESCONOCIDA.eg], backgroundColor: ['#1F4E79','#B7791F','#6B5B95','#5A6B7E'], borderColor: '#FFFFFF', borderWidth: 2 }] },
       options: { plugins: { legend: { labels: { color: '#1E2A3A', font: { size: 11 } } } }, cutout: '60%' }
     });
   }
@@ -1838,6 +1894,8 @@ function exportExcel() {
     ['Ingresos PEN (Soles)', byMoneda.PEN.ing],
     ['Egresos USD', byMoneda.USD.eg],
     ['Egresos PEN (Soles)', byMoneda.PEN.eg],
+    ['Ingresos EUR (Euros)', byMoneda.EUR.ing],
+    ['Egresos EUR (Euros)', byMoneda.EUR.eg],
     ['Pendiente de Cobro (USD)', Math.max(0, totals.pendiente)],
     ['Ganancia Total (Ing − Eg)', profitTotals.ganancia],
     ['Margen Promedio %', profitTotals.margenPromedio.toFixed(2)],
@@ -1851,8 +1909,8 @@ function exportExcel() {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resumen), '1.RESUMEN');
 
   // 2. CRUCE COMPLETO con ganancia
-  const cruceCols = ['File_Num', 'Pasajero', 'Agencia', 'MesGeneracion', 'MesCobro', 'MesPago', 'Total', 'Ing_Total', 'Eg_Total', 'Pendiente', 'Ganancia', 'Margen', 'MargenMaestro', 'Moneda', 'Ing_USD', 'Ing_PEN', 'Eg_USD', 'Eg_PEN', 'Est_Ing', 'Est_Eg', 'Estado', 'Criticidad', 'AlertaRentabilidad', 'AgingBucket', 'DiasDesdeInicio', 'DiasSinIngreso', 'NumIngresos', 'NumEgresos', 'SaldoCobrar'];
-  const cruceHdr = ['FILE', 'PASAJERO', 'AGENCIA', 'MES GENERADO', 'MES NOS PAGARON', 'MES PAGAMOS', 'TOTAL MAESTRO', 'INGRESOS', 'EGRESOS', 'PENDIENTE', 'GANANCIA', 'MARGEN%', '%MAESTRO', 'MONEDA', 'ING USD', 'ING PEN', 'EG USD', 'EG PEN', 'EST.ING', 'EST.EG', 'ESTADO', 'CRITICIDAD', 'ALERTA RENT', 'AGING', 'DIAS DESDE INICIO', 'DIAS SIN COBRO', '#ING', '#EG', 'SALDO COBRAR'];
+  const cruceCols = ['File_Num', 'Pasajero', 'Agencia', 'MesGeneracion', 'MesCobro', 'MesPago', 'Total', 'Ing_Total', 'Eg_Total', 'Pendiente', 'Ganancia', 'Margen', 'MargenMaestro', 'Moneda', 'Ing_USD', 'Ing_PEN', 'Ing_EUR', 'Eg_USD', 'Eg_PEN', 'Eg_EUR', 'Est_Ing', 'Est_Eg', 'Estado', 'Criticidad', 'AlertaRentabilidad', 'AgingBucket', 'DiasDesdeInicio', 'DiasSinIngreso', 'NumIngresos', 'NumEgresos', 'SaldoCobrar'];
+  const cruceHdr = ['FILE', 'PASAJERO', 'AGENCIA', 'MES GENERADO', 'MES NOS PAGARON', 'MES PAGAMOS', 'TOTAL MAESTRO', 'INGRESOS', 'EGRESOS', 'PENDIENTE', 'GANANCIA', 'MARGEN%', '%MAESTRO', 'MONEDA', 'ING USD', 'ING PEN', 'ING EUR', 'EG USD', 'EG PEN', 'EG EUR', 'EST.ING', 'EST.EG', 'ESTADO', 'CRITICIDAD', 'ALERTA RENT', 'AGING', 'DIAS DESDE INICIO', 'DIAS SIN COBRO', '#ING', '#EG', 'SALDO COBRAR'];
   const cruceCell = (r, k) => ['MesGeneracion', 'MesCobro', 'MesPago'].includes(k) ? monthLabel(r[k]) : r[k];
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([cruceHdr, ...cruce.map(r => cruceCols.map(k => cruceCell(r, k)))]), '2.CRUCE COMPLETO');
 
@@ -1905,6 +1963,7 @@ function exportExcel() {
     ['MONEDA', 'ING. TX', 'MONTO INGRESOS', 'EG. TX', 'MONTO EGRESOS'],
     ['USD', byMoneda.USD.ingTx, byMoneda.USD.ing, byMoneda.USD.egTx, byMoneda.USD.eg],
     ['PEN (Soles)', byMoneda.PEN.ingTx, byMoneda.PEN.ing, byMoneda.PEN.egTx, byMoneda.PEN.eg],
+    ['EUR (Euros)', byMoneda.EUR.ingTx, byMoneda.EUR.ing, byMoneda.EUR.egTx, byMoneda.EUR.eg],
     ['Sin moneda', byMoneda.DESCONOCIDA.ingTx, byMoneda.DESCONOCIDA.ing, byMoneda.DESCONOCIDA.egTx, byMoneda.DESCONOCIDA.eg],
   ];
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(monedaSheet), '5C.MONEDAS');
@@ -2199,6 +2258,9 @@ const analyzeFromDrive = async () => {
       return true;
     });
 
+    // Garantizar que ninguna transacción quede sin moneda
+    fillMonedaFaltante(ingRows);
+    fillMonedaFaltante(egUniq);
     const { cruce, egSinFile } = crossRef(maestroArr, ingRows, egUniq);
     state.mesFiltro = 'ALL';
     state.mesCriterio = 'gen';
