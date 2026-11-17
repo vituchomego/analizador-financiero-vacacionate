@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Vacacionate SAC — Dashboard Financiero v4.7 Detección Total de Monedas</title>
+<title>Vacacionate SAC — Dashboard Financiero v4.8 Monedas + Fechas de Pago Validadas</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
@@ -186,7 +186,7 @@
   <div class="logo">V</div>
   <div>
     <div class="app-title">Vacacionate SAC — Analizador Financiero</div>
-    <div class="app-subtitle">v4.7 Executive Online · Detección total de Monedas (US/NS/EU) · Bancos por Mes</div>
+    <div class="app-subtitle">v4.8 Executive Online · Monedas US/NS/EU · Meses de pago validados (sin fechas de viaje) · Bancos por Mes</div>
   </div>
   <div class="app-sub">Dashboard Ejecutivo Online</div>
 </div>
@@ -379,6 +379,30 @@ const parseDate = (v) => {
   return null;
 };
 
+// ── Fechas de pago/cobro ────────────────────────────────────────
+// Selector inteligente de la columna de fecha del MOVIMIENTO (pago/abono).
+// Excluye fechas de viaje y de documento: "Fecha In.", "Fec.Out.", "Fecha DC.", "F.Fact.", etc.
+const FECHA_EXCLUIR_RE = /\bIN\b|\bOUT\b|VIAJE|SALIDA|RETORNO|LLEGADA|\bDC\b|FACT|VENC|BLOQUEO|CHECK/i;
+const findFechaCol = (hdrs) => {
+  const H = hdrs.map(h => String(h ?? '').trim());
+  // 1º: columna llamada exactamente "Fecha" / "Fec." (la fecha del movimiento en los reportes del sistema)
+  let i = H.findIndex(h => /^fecha\s*$|^fec\.?\s*$/i.test(h));
+  if (i >= 0) return i;
+  // 2º: fecha explícita de pago/abono/cobro/operación/depósito
+  i = H.findIndex(h => /fecha|\bfec\b|fec\./i.test(h) && /PAGO|ABONO|COBRO|RECIBO|OPERAC|DEP[ÓO]SITO|MOV/i.test(h));
+  if (i >= 0) return i;
+  // 3º: cualquier otra fecha que NO sea de viaje ni de documento
+  i = H.findIndex(h => /fecha|\bfec\b|fec\./i.test(h) && !FECHA_EXCLUIR_RE.test(h));
+  return i;
+};
+// Un cobro o pago real nunca es futuro: las fechas posteriores a hoy (+2 días de tolerancia)
+// o anteriores a 2015 (relleno tipo 1900) son fechas de viaje/basura y NO se usan para conciliar meses.
+const esFechaMovimiento = (d) => {
+  if (!(d instanceof Date) || isNaN(d.getTime())) return false;
+  const lim = new Date(); lim.setHours(23, 59, 59, 999); lim.setDate(lim.getDate() + 2);
+  return d <= lim && d.getFullYear() >= 2015;
+};
+
 const daysBetween = (d1, d2) => {
   if (!d1 || !d2) return null;
   return Math.floor((d2.getTime() - d1.getTime()) / 86400000);
@@ -497,7 +521,7 @@ const parseMaestro = (data) => {
   const neI = findCol(hdrs, ['Neto']);
   const coI = findCol(hdrs, ['Costo']);
   const unI = findCol(hdrs, ['Utilidad']);
-  const fcI = findCol(hdrs, ['Fecha', 'Fec']);
+  const fcI = findFechaCol(hdrs);
   if (fI < 0 || tI < 0) return [];
   return data.slice(hRow + 1)
     .filter(row => row && /^\d{8}$/.test(String(row[fI] ?? '').trim()))
@@ -528,7 +552,7 @@ const parseIngreso = (data, filename) => {
   const monI = (() => { const i = hdrs.findIndex(h => /^monto\s*$/i.test(h.trim())); return i >= 0 ? i : hdrs.findIndex(h => /monto/i.test(h)); })();
   const filI = (() => { const i = hdrs.findIndex(h => /^file$/i.test(h.trim())); return i >= 0 ? i : 0; })();
   const recI = hdrs.findIndex(h => /recibo/i.test(h));
-  const fecI = hdrs.findIndex(h => /fecha|fec/i.test(h));
+  const fecI = findFechaCol(hdrs);
   const conI = hdrs.findIndex(h => /concepto|detalle|descrip|observ/i.test(h));
   const refI = hdrs.findIndex(h => /referencia|ref|banco/i.test(h));
   const agI = hdrs.findIndex(h => /agencia/i.test(h));
@@ -584,7 +608,7 @@ const parseEgreso = (data, filename) => {
   const monI = findCol(hdrs, ['MONTO', 'Monto']);
   const filI = findCol(hdrs, ['File']);
   const refI = findCol(hdrs, ['Referencia', 'Ref']);
-  const fecI = findCol(hdrs, ['Fecha', 'Fec']);
+  const fecI = findFechaCol(hdrs);
   const conI = findCol(hdrs, ['Concepto', 'Detalle', 'Descrip']);
   const provI = findCol(hdrs, ['Proveedor', 'Beneficiario']);
   const monedaI = hdrs.findIndex(h => /\bmoneda\b|\bmon\b|\bcurrency\b/i.test(h));
@@ -666,8 +690,8 @@ const crossRef = (maestroArr, ingRows, egRows) => {
     if (!monedaFile) for (const [k, v] of [['USD', eg_USD], ['PEN', eg_PEN], ['EUR', eg_EUR]]) if (v > _mBest) { _mBest = v; monedaFile = k; }
 
     // Date analysis
-    const ingDates = ings.map(r => r.Fecha).filter(Boolean);
-    const egDates = egs.map(r => r.Fecha).filter(Boolean);
+    const ingDates = ings.map(r => r.Fecha).filter(esFechaMovimiento);
+    const egDates = egs.map(r => r.Fecha).filter(esFechaMovimiento);
     const allDates = [...ingDates, ...egDates];
     const firstActivity = allDates.length ? new Date(Math.min(...allDates.map(d => d.getTime()))) : null;
     const lastActivity = allDates.length ? new Date(Math.max(...allDates.map(d => d.getTime()))) : null;
@@ -883,6 +907,7 @@ function buildMensual() {
   });
   for (const r of cruce) {
     for (const i of r.Ingresos) {
+      if (!esFechaMovimiento(i.Fecha)) continue;
       const k = monthKey(i.Fecha); if (!k) continue;
       const s = get(k); s.ingMonto += i.Monto; s.ingTx++;
       if (i.Moneda === 'USD') s.ingUSD += i.Monto;
@@ -891,6 +916,7 @@ function buildMensual() {
       else s.ingSinMoneda += i.Monto;
     }
     for (const e of r.Egresos)  {
+      if (!esFechaMovimiento(e.Fecha)) continue;
       const k = monthKey(e.Fecha); if (!k) continue;
       const s = get(k); s.egMonto += e.Monto; s.egTx++;
       if (e.Moneda === 'USD') s.egUSD += e.Monto;
@@ -924,6 +950,7 @@ function buildBancoMensual(cruce = state.result.cruce) {
   };
   for (const r of cruce) {
     for (const i of r.Ingresos) {
+      if (!esFechaMovimiento(i.Fecha)) continue;
       const mes = monthKey(i.Fecha); if (!mes) continue;
       const b = i.Banco || 'SIN BANCO';
       const o = get(mes, b);
@@ -934,6 +961,7 @@ function buildBancoMensual(cruce = state.result.cruce) {
       else o.ingSinMoneda += i.Monto;
     }
     for (const e of r.Egresos) {
+      if (!esFechaMovimiento(e.Fecha)) continue;
       const mes = monthKey(e.Fecha); if (!mes) continue;
       const b = e.Banco || 'SIN BANCO';
       const o = get(mes, b);
@@ -1194,7 +1222,7 @@ function renderTrazabilidad() {
     const r = selected;
     const ingRows = r.Ingresos.length ? r.Ingresos.map(i => `
       <div class="tl-row" style="grid-template-columns:80px 90px 100px 70px 100px 1fr 1fr">
-        <span>${fmtDate(i.Fecha)}</span>
+        <span>${fmtDate(i.Fecha)}${i.Fecha && !esFechaMovimiento(i.Fecha) ? ' <span title="Fecha futura o inválida (posible fecha de viaje): no se usa para el mes de cobro ni el comparativo" style="cursor:help">⚠️</span>' : ''}</span>
         <span style="color:var(--accent2)">#${i.Recibo || '—'}</span>
         <span class="tl-amt ing">+${fmtN(i.Monto)}</span>
         <span>${monedaBadge(i.Moneda)}</span>
@@ -1204,7 +1232,7 @@ function renderTrazabilidad() {
       </div>`).join('') : '<div class="tl-row empty">— Sin ingresos registrados —</div>';
     const egRows = r.Egresos.length ? r.Egresos.map(e => `
       <div class="tl-row" style="grid-template-columns:80px 90px 100px 70px 100px 1fr 1fr">
-        <span>${fmtDate(e.Fecha)}</span>
+        <span>${fmtDate(e.Fecha)}${e.Fecha && !esFechaMovimiento(e.Fecha) ? ' <span title="Fecha futura o inválida (posible fecha de viaje): no se usa para el mes de pago ni el comparativo" style="cursor:help">⚠️</span>' : ''}</span>
         <span style="color:var(--danger)">#${e.Recibo}</span>
         <span class="tl-amt eg">−${fmtN(e.Monto)}</span>
         <span>${monedaBadge(e.Moneda)}</span>
